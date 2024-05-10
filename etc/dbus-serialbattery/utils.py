@@ -37,7 +37,7 @@ def _get_list_from_config(
 
 
 # Constants
-DRIVER_VERSION = "1.3.20240510dev"
+DRIVER_VERSION = "1.3.20240510passthrough"
 zero_char = chr(48)
 degree_sign = "\N{DEGREE SIGN}"
 
@@ -87,6 +87,9 @@ SOC_RESET_AFTER_DAYS = (
     if config["DEFAULT"]["SOC_RESET_AFTER_DAYS"] != ""
     else False
 )
+
+# --------- Driver mode ---------
+DRIVER_MODE = int(config["DEFAULT"]["DRIVER_MODE"])
 
 # --------- BMS disconnect behaviour ---------
 BLOCK_ON_DISCONNECT = "True" == config["DEFAULT"]["BLOCK_ON_DISCONNECT"]
