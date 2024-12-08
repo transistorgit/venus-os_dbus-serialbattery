@@ -541,7 +541,7 @@ class Battery(ABC):
                     logger.debug("SOC initialized and set to 100%")
             # else initialize it from dbus
             else:
-                self.soc_calc_capacity_remain = self.capacity * self.soc_calc / 100 if self.soc > 0 else 0
+                self.soc_calc_capacity_remain = self.capacity * self.soc_calc / 100 if self.soc_calc > 0 else 0
                 logger.debug("SOC initialized from dbus and set to " + str(self.soc_calc) + "%")
 
             self.soc_calc_capacity_remain_lasttime = current_time
