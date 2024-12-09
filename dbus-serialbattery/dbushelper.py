@@ -725,6 +725,10 @@ class DbusHelper:
         try:
             # Call the battery's refresh_data function
             result = self.battery.refresh_data()
+
+            # Calculate the values for the battery
+            self.battery.set_calculated_data()
+
             if result:
                 # reset error variables
                 self.error["count"] = 0
@@ -854,12 +858,8 @@ class DbusHelper:
         else:
             self._dbusservice["/Soc"] = round(self.battery.soc, 2) if self.battery.soc is not None else None
         self._dbusservice["/Dc/0/Voltage"] = round(self.battery.voltage, 2) if self.battery.voltage is not None else None
-        self._dbusservice["/Dc/0/Current"] = round(self.battery.get_current(), 2) if self.battery.get_current() is not None else None
-        self._dbusservice["/Dc/0/Power"] = (
-            round(self.battery.voltage * self.battery.get_current(), 2)
-            if self.battery.get_current() is not None and self.battery.get_current() is not None
-            else None
-        )
+        self._dbusservice["/Dc/0/Current"] = round(self.battery.current_calc, 2) if self.battery.current_calc is not None else None
+        self._dbusservice["/Dc/0/Power"] = round(self.battery.power_calc, 2) if self.battery.power_calc is not None else None
         self._dbusservice["/Dc/0/Temperature"] = self.battery.get_temp()
         self._dbusservice["/Capacity"] = self.battery.get_capacity_remain()
         self._dbusservice["/ConsumedAmphours"] = (
@@ -994,8 +994,8 @@ class DbusHelper:
                 logger.error("Non blocking exception occurred: " + f"{repr(exception_object)} of type {exception_type} in {file} line #{line}")
 
         # Calculate average current for the last 300 cycles
-        if self.battery.get_current() is not None:
-            self.battery.current_avg_lst.append(self.battery.get_current())
+        if self.battery.current_calc is not None:
+            self.battery.current_avg_lst.append(self.battery.current_calc)
             # delete oldest value
             if len(self.battery.current_avg_lst) > 300:
                 del self.battery.current_avg_lst[0]

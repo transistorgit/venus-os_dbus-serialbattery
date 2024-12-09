@@ -39,6 +39,7 @@
 * Changed: The root filesystem is not mounted as read-write anymore, since overlay filesystems are used now. This allows to let the core system files untouched and to revert all changes with one command. The changes are now also persistant and do not have to be installed on every Venus OS update again by @mr-manuel
 * Changed: The setting `MODBUS_ADDRESSES` was replaced by `BATTERY_ADDRESSES` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `SEPLOS_USE_BMS_VALUES` was replaced by `USE_BMS_DVCC_VALUES` in the `config.default.ini` by @mr-manuel
+* Changed: Use corrected current for both normal current and SOC calculation if `SOC_CALCULATION` is enabled by @mr-manuel
 
 
 ## v1.5.20241202

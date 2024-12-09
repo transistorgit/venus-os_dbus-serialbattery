@@ -191,7 +191,7 @@ class Battery(ABC):
         # this values should only be initialized once,
         # else the BMS turns off the inverter on disconnect
         self.soc_calc_capacity_remain: float = None
-        self.soc_calc_capacity_remain_lasttime: float = None
+        self.soc_calc_capacity_remain_last_time: float = None
         self.soc_calc_reset_starttime: int = None
         self.soc_calc: float = None  # save soc_calc to preserve on restart
         self.soc: float = None
@@ -282,8 +282,10 @@ class Battery(ABC):
         :return: None
         """
         self.voltage: float = None
-        self.current: float = None
-        self.current_corrected: float = None
+        self.current: float = 0
+        self.current_calc: float = 0
+        self.current_corrected: float = 0
+        self.power_calc: float = 0
         self.driver_start_time: int = int(time())
 
     @abstractmethod
@@ -454,7 +456,6 @@ class Battery(ABC):
         :return: None
         """
         current_time = time()
-        self.current_corrected = 0
 
         # ### only needed, if the SOC should be reset to 100% after the battery was balanced
         """
@@ -468,30 +469,14 @@ class Battery(ABC):
         """
 
         if self.soc_calc_capacity_remain is not None:
-            # calculate current only, if lists are different
-            if utils.SOC_CALC_CURRENT:
-                # calculate current from real current
-                self.current_corrected = round(
-                    utils.calc_linear_relationship(
-                        self.get_current(),
-                        utils.SOC_CALC_CURRENT_REPORTED_BY_BMS,
-                        utils.SOC_CALC_CURRENT_MEASURED_BY_USER,
-                    ),
-                    3,
-                )
-            else:
-                # use current as it is
-                self.current_corrected = self.get_current()
-
-            self.soc_calc_capacity_remain = (
-                self.soc_calc_capacity_remain + self.current_corrected * (current_time - self.soc_calc_capacity_remain_lasttime) / 3600
-            )
+            # calculate remaining capacity based on current
+            self.soc_calc_capacity_remain = self.soc_calc_capacity_remain + self.current_calc * (current_time - self.soc_calc_capacity_remain_last_time) / 3600
 
             # limit soc_calc_capacity_remain to capacity and zero
             # in case 100% is reached and the battery is not fully charged
             # in case 0% is reached and the battery is not fully discharged
             self.soc_calc_capacity_remain = max(min(self.soc_calc_capacity_remain, self.capacity), 0)
-            self.soc_calc_capacity_remain_lasttime = current_time
+            self.soc_calc_capacity_remain_last_time = current_time
 
             # execute checks only if one cell reaches max voltage
             # use highest cell voltage, since in this case the battery is full
@@ -499,7 +484,7 @@ class Battery(ABC):
             if self.get_max_cell_voltage() >= utils.MAX_CELL_VOLTAGE:
                 # check if battery is fully charged
                 if (
-                    self.get_current() < utils.SOC_RESET_CURRENT
+                    self.current_calc < utils.SOC_RESET_CURRENT
                     and self.soc_calc_reset_starttime
                     # ### only needed, if the SOC should be reset to 100% after the battery was balanced
                     # ### in off grid situations and winter time, this will not always be the case
@@ -518,7 +503,7 @@ class Battery(ABC):
             # else a unbalanced battery won't reach 0% and the BMS will shut down
             if self.get_min_cell_voltage() <= utils.MIN_CELL_VOLTAGE:
                 # check if battery is still being discharged
-                if self.get_current() < 0 and self.soc_calc_reset_starttime:
+                if self.current_calc < 0 and self.soc_calc_reset_starttime:
                     # set soc to 0%, if SOC_RESET_TIME is reached and soc_calc is not rounded 0% anymore
                     if (int(current_time) - self.soc_calc_reset_starttime) > utils.SOC_RESET_TIME and round(self.soc_calc, 0) != 0:
                         logger.info("SOC set to 0%")
@@ -544,7 +529,7 @@ class Battery(ABC):
                 self.soc_calc_capacity_remain = self.capacity * self.soc_calc / 100 if self.soc_calc > 0 else 0
                 logger.debug("SOC initialized from dbus and set to " + str(self.soc_calc) + "%")
 
-            self.soc_calc_capacity_remain_lasttime = current_time
+            self.soc_calc_capacity_remain_last_time = current_time
 
         # calculate the SOC based on remaining capacity
         self.soc_calc = round(max(min((self.soc_calc_capacity_remain / self.capacity) * 100, 100), 0), 3)
@@ -772,8 +757,7 @@ class Battery(ABC):
                     + f"max_cell_voltage: {self.get_max_cell_voltage()} V • penalty_sum: {penalty_sum:.3f} V\n"
                     + f"soc: {self.soc}% • soc_calc: {self.soc_calc}%\n"
                     + f"current: {self.current:.2f}A"
-                    + (f" • current_corrected: {self.current_corrected:.2f} A • " if self.current_corrected is not None else "")
-                    + (f"current_external: {self.current_external:.2f} A\n" if self.current_external is not None else "\n")
+                    + (f" • current_calc: {self.current_calc:.2f} A\n" if self.current_calc is not None else "\n")
                     + f"current_time: {current_time}\n"
                     + f"linear_cvl_last_set: {self.linear_cvl_last_set}\n"
                     + f"charge_fet: {self.charge_fet} • control_allow_charge: {self.control_allow_charge}\n"
@@ -937,8 +921,7 @@ class Battery(ABC):
                     + f"max_cell_voltage: {self.get_max_cell_voltage()} V\n"
                     + f"soc: {self.soc}% • soc_calc: {self.soc_calc}%\n"
                     + f"current: {self.current:.2f}A"
-                    + (f" • current_corrected: {self.current_corrected:.2f} A • " if self.current_corrected is not None else "")
-                    + (f"current_external: {self.current_external:.2f} A\n" if self.current_external is not None else "\n")
+                    + (f" • current_calc: {self.current_calc:.2f} A\n" if self.current_calc is not None else "\n")
                     + f"current_time: {current_time}\n"
                     + f"linear_cvl_last_set: {self.linear_cvl_last_set}\n"
                     + f"charge_fet: {self.charge_fet} • control_allow_charge: {self.control_allow_charge}\n"
@@ -1539,10 +1522,10 @@ class Battery(ABC):
         :param only_number: Whether to return only the seconds
         :return: The time to reach the target SoC
         """
-        if self.get_current() is None or soc_target is None or percent_per_second is None:
+        if self.current_calc is None or soc_target is None or percent_per_second is None:
             return None
 
-        if self.get_current() > 0:
+        if self.current_calc > 0:
             soc_diff = soc_target - self.soc_calc
         else:
             soc_diff = self.soc_calc - soc_target
@@ -1841,8 +1824,59 @@ class Battery(ABC):
         if self.dbus_external_objects is not None:
             current_external = round(self.dbus_external_objects["Current"].get_value(), 3)
             logger.debug(f"current: {self.current} - current_external: {current_external}")
-            return current_external
-        return self.current
+            current = current_external
+        else:
+            # calculate current only, if lists are different
+            if utils.SOC_CALC_CURRENT:
+                # calculate current from real current
+                current = round(
+                    utils.calc_linear_relationship(
+                        self.current,
+                        utils.SOC_CALC_CURRENT_REPORTED_BY_BMS,
+                        utils.SOC_CALC_CURRENT_MEASURED_BY_USER,
+                    ),
+                    3,
+                )
+                # set for debugging
+                self.current_corrected = current
+            else:
+                # use current as it is
+                current = self.current
+
+        return current
+
+    def get_power(self) -> Union[float, None]:
+        """
+        Calculate the power from the current and voltage.
+
+        :return: The power
+        """
+        current_time = time()
+
+        # Has to be calculated from last measurement until now
+        if self.power_calc is not None and self.power_calc_last_time is not None:
+            # Calculate energy based on the power from last measurement until now
+            energy = self.power_calc / 3600 * (current_time - self.power_calc_last_time)
+
+            # Coloumb count charged energy
+            self.energy_charged += energy if energy > 0 else 0
+
+            # Coloumb count discharged energy
+            self.energy_discharged += energy * -1 if energy < 0 else 0
+
+        power = self.voltage * self.current_calc if self.current_calc is not None and self.voltage is not None else None
+
+        self.power_calc_last_time = current_time
+        return power
+
+    def set_calculated_data(self) -> None:
+        """
+        Execute all calculations and set the calculated data.
+
+        :return: None
+        """
+        self.current_calc = self.get_current()
+        self.power_calc = self.get_power()
 
     def manage_error_code(self, error_code: int = 8) -> None:
         """
@@ -1894,8 +1928,8 @@ class Battery(ABC):
         logger.info(f"Battery {self.type} connected to dbus from {self.port}")
         logger.info("========== Settings ==========")
         logger.info(
-            f"> Connection voltage: {self.voltage} V | Current: {self.get_current()} A | SoC: {self.soc}%"
-            + (f" | SoC calc: {self.soc_calc:.0f}%" if self.soc_calc is not None else "")
+            f"> Connection voltage: {self.voltage} V | Current: {self.current_calc} A | SoC: {self.soc}%"
+            + (f" | SoC calc: {self.soc_calc:.0f}%" if utils.SOC_CALCULATION else "")
         )
         logger.info(f"> Cell count: {self.cell_count} | Cells populated: {cell_counter}")
         logger.info(f"> LINEAR LIMITATION ENABLE: {utils.LINEAR_LIMITATION_ENABLE}")
