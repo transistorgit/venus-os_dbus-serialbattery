@@ -863,7 +863,9 @@ class DbusHelper:
         self._dbusservice["/Dc/0/Temperature"] = self.battery.get_temp()
         self._dbusservice["/Capacity"] = self.battery.get_capacity_remain()
         self._dbusservice["/ConsumedAmphours"] = (
-            None if self.battery.capacity is None or self.battery.get_capacity_remain() is None else self.battery.capacity - self.battery.get_capacity_remain()
+            abs(self.battery.capacity - self.battery.get_capacity_remain()) * -1
+            if self.battery.capacity is not None and self.battery.get_capacity_remain() is not None
+            else None
         )
 
         midpoint, deviation = self.battery.get_midvoltage()
@@ -878,12 +880,16 @@ class DbusHelper:
         self._dbusservice["/ErrorCode"] = self.battery.error_code
         self._dbusservice["/ConnectionInformation"] = self.battery.connection_info
 
-        self._dbusservice["/History/DeepestDischarge"] = self.battery.history.deepest_discharge
-        self._dbusservice["/History/LastDischarge"] = self.battery.history.last_discharge
-        self._dbusservice["/History/AverageDischarge"] = self.battery.history.average_discharge
+        self._dbusservice["/History/DeepestDischarge"] = (
+            abs(self.battery.history.deepest_discharge) * -1 if self.battery.history.deepest_discharge is not None else None
+        )
+        self._dbusservice["/History/LastDischarge"] = abs(self.battery.history.last_discharge) * -1 if self.battery.history.last_discharge is not None else None
+        self._dbusservice["/History/AverageDischarge"] = (
+            abs(self.battery.history.average_discharge) * -1 if self.battery.history.average_discharge is not None else None
+        )
+        self._dbusservice["/History/TotalAhDrawn"] = abs(self.battery.history.total_ah_drawn) * -1 if self.battery.history.total_ah_drawn is not None else None
         self._dbusservice["/History/ChargeCycles"] = self.battery.history.charge_cycles
         self._dbusservice["/History/FullDischarges"] = self.battery.history.full_discharges
-        self._dbusservice["/History/TotalAhDrawn"] = self.battery.history.total_ah_drawn
         self._dbusservice["/History/MinimumVoltage"] = self.battery.history.minimum_voltage
         self._dbusservice["/History/MaximumVoltage"] = self.battery.history.maximum_voltage
         self._dbusservice["/History/MinimumCellVoltage"] = self.battery.history.minimum_cell_voltage
@@ -1158,6 +1164,7 @@ class DbusHelper:
         :param object_path: The object path.
         :param setting_name: The setting name.
         :param value: The value to set.
+        :return: True if the setting was set, otherwise False.
         """
         # check if value is None
         if value is None:
@@ -1186,6 +1193,7 @@ class DbusHelper:
         :param service: The service name.
         :param object_path: The object path.
         :param setting_name: The setting name.
+        :return: True if the setting was removed, otherwise False.
         """
         obj = bus.get_object(service, object_path)
         # iface = dbus.Interface(obj, "org.freedesktop.DBus.Introspectable")
@@ -1196,11 +1204,12 @@ class DbusHelper:
         try:
             logger.debug(f"Removed setting at {object_path}")
             return True if method(setting_name) == 0 else False
-        except dbus.exceptions.DBusException as e:
+        except dbus.exceptions.DBusException as err:
             # set error code, to show in the GUI that something is wrong
             self.battery.manage_error_code(8)
 
-            logger.error(f"Failed to remove setting: {e}")
+            logger.error("Failed to remove setting")
+            logger.error(err)
 
     def create_nested_dict(self, path, value) -> dict:
         """
