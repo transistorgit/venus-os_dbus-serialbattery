@@ -15,6 +15,8 @@ class BatteryTemplate(Battery):
     def __init__(self, port, baud, address):
         super(BatteryTemplate, self).__init__(port, baud, address)
         self.type = self.BATTERYTYPE
+        # Exclude history values from calculation if they are provided from the BMS
+        self.history.exclude_values_to_calculate = []
 
         # If the BMS could be connected over RS485/Modbus and an address can be configured
         # please use the address in your commands. This will allow multiple batteries to be connected
@@ -283,7 +285,7 @@ class BatteryTemplate(Battery):
         self.history.maximum_cell_voltage = VALUE_FROM_BMS
 
         # Time since last full charge in seconds (int)
-        self.history.time_since_last_full_charge = VALUE_FROM_BMS
+        self.history.timestamp_last_full_charge = VALUE_FROM_BMS
 
         # Number of low voltage alarms (int)
         self.history.low_voltage_alarms = VALUE_FROM_BMS
