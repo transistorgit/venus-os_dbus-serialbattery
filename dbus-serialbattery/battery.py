@@ -600,6 +600,7 @@ class Battery(ABC):
             if voltage:
                 voltage_sum += voltage
         """
+        SOC_RESET_TIME = 60
 
         if self.soc_calc_capacity_remain is not None:
             # calculate remaining capacity based on current
@@ -611,34 +612,14 @@ class Battery(ABC):
             self.soc_calc_capacity_remain = max(min(self.soc_calc_capacity_remain, self.capacity), 0)
             self.soc_calc_capacity_remain_last_time = current_time
 
-            # execute checks only if one cell reaches max voltage
-            # use highest cell voltage, since in this case the battery is full
-            # else a unbalanced battery won't reach 100%
-            if self.get_max_cell_voltage() >= utils.MAX_CELL_VOLTAGE:
-                # check if battery is fully charged
-                if (
-                    self.current_calc < utils.SOC_RESET_CURRENT
-                    and self.soc_calc_reset_start_time
-                    # ### only needed, if the SOC should be reset to 100% after the battery was balanced
-                    # ### in off grid situations and winter time, this will not always be the case
-                    # and (self.max_battery_voltage - utils.VOLTAGE_DROP <= voltage_sum)
-                ):
-                    # set soc to 100%, if SOC_RESET_TIME is reached and soc_calc is not rounded 100% anymore
-                    if (int(current_time) - self.soc_calc_reset_start_time) > utils.SOC_RESET_TIME and round(self.soc_calc, 0) != 100:
-                        logger.info("SOC set to 100%")
-                        self.soc_calc_capacity_remain = self.capacity
-                        self.soc_calc_reset_start_time = None
-                else:
-                    self.soc_calc_reset_start_time = int(current_time)
-
             # execute checks only if one cell reaches min voltage
             # use lowest cell voltage, since in this case the battery is empty
             # else a unbalanced battery won't reach 0% and the BMS will shut down
             if self.get_min_cell_voltage() <= utils.MIN_CELL_VOLTAGE:
                 # check if battery is still being discharged
                 if self.current_calc < 0 and self.soc_calc_reset_start_time:
-                    # set soc to 0%, if SOC_RESET_TIME is reached and soc_calc is not rounded 0% anymore
-                    if (int(current_time) - self.soc_calc_reset_start_time) > utils.SOC_RESET_TIME and round(self.soc_calc, 0) != 0:
+                    # set soc to 0%, if SOC_RESET_TIME is reached and soc_calc is not rounded 0%
+                    if (int(current_time) - self.soc_calc_reset_start_time) > SOC_RESET_TIME and round(self.soc_calc, 0) != 0:
                         logger.info("SOC set to 0%")
                         self.soc_calc_capacity_remain = 0
                         self.soc_calc_reset_start_time = None
@@ -846,11 +827,19 @@ class Battery(ABC):
                         self.transition_start_time = current_time
                         self.initial_control_voltage = self.control_voltage
                         charge_mode = "Float Transition"
+
                         # Assume battery SOC ist 100% at this stage
                         self.trigger_soc_reset()
+
                         # Set timestamp of full charge for history
                         if "timestamp_last_full_charge" not in self.history.exclude_values_to_calculate:
                             self.history.timestamp_last_full_charge = int(time())
+
+                        if utils.SOC_CALCULATION:
+                            logger.info("SOC set to 100%")
+                            self.soc_calc_capacity_remain = self.capacity
+                            self.soc_calc_reset_start_time = None
+
                     elif self.charge_mode.startswith("Float Transition"):
                         elapsed_time = current_time - self.transition_start_time
                         # Voltage reduction per second
@@ -909,7 +898,7 @@ class Battery(ABC):
                         else ""
                     )
                     + "soc_calc_reset_start_time: "
-                    + (f"{int(current_time - self.soc_calc_reset_start_time)}/{utils.SOC_RESET_TIME}" if self.soc_calc_reset_start_time is not None else "None")
+                    + (f"{int(current_time - self.soc_calc_reset_start_time)}/60" if self.soc_calc_reset_start_time is not None else "None")
                 )
 
                 self.charge_mode_debug_float = (
@@ -1027,9 +1016,16 @@ class Battery(ABC):
                 if self.charge_mode is not None and not self.charge_mode.startswith("Float"):
                     # Assume battery SOC ist 100% at this stage
                     self.trigger_soc_reset()
+
                     # Set timestamp of full charge for history
                     if "timestamp_last_full_charge" not in self.history.exclude_values_to_calculate:
                         self.history.timestamp_last_full_charge = int(time())
+
+                    if utils.SOC_CALCULATION:
+                        logger.info("SOC set to 100%")
+                        self.soc_calc_capacity_remain = self.capacity
+                        self.soc_calc_reset_start_time = None
+
                 self.control_voltage = round(utils.FLOAT_CELL_VOLTAGE * self.cell_count, 2)
                 self.charge_mode = "Float"
                 # reset bulk when going into float
@@ -1076,7 +1072,7 @@ class Battery(ABC):
                         else ""
                     )
                     + "soc_calc_reset_start_time: "
-                    + (f"{int(current_time - self.soc_calc_reset_start_time)}/{utils.SOC_RESET_TIME}" if self.soc_calc_reset_start_time is not None else "None")
+                    + (f"{int(current_time - self.soc_calc_reset_start_time)}/60" if self.soc_calc_reset_start_time is not None else "None")
                 )
 
                 self.charge_mode_debug_float = (
@@ -1991,13 +1987,13 @@ class Battery(ABC):
             current = current_external
         else:
             # calculate current only, if lists are different
-            if utils.SOC_CALC_CURRENT:
+            if utils.CURRENT_CORRECTION:
                 # calculate current from real current
                 current = round(
                     utils.calc_linear_relationship(
                         self.current,
-                        utils.SOC_CALC_CURRENT_REPORTED_BY_BMS,
-                        utils.SOC_CALC_CURRENT_MEASURED_BY_USER,
+                        utils.CURRENT_REPORTED_BY_BMS,
+                        utils.CURRENT_MEASURED_BY_USER,
                     ),
                     3,
                 )
