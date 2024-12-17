@@ -565,7 +565,7 @@ class DbusHelper:
         # Create SOC, DC and System items
         self._dbusservice.add_path("/Soc", None, writeable=True)
         # add original SOC for comparing
-        if utils.SOC_CALCULATION:
+        if utils.SOC_CALCULATION or utils.EXTERNAL_SENSOR_DBUS_PATH_SOC is not None:
             self._dbusservice.add_path("/SocBms", None, writeable=True)
 
         self._dbusservice.add_path(
@@ -763,6 +763,20 @@ class DbusHelper:
             # Call the battery's refresh_data function
             result = self.battery.refresh_data()
 
+            # Check if external sensor is still connected
+            if utils.EXTERNAL_SENSOR_DBUS_DEVICE is not None and (
+                utils.EXTERNAL_SENSOR_DBUS_PATH_CURRENT is not None or utils.EXTERNAL_SENSOR_DBUS_PATH_SOC is not None
+            ):
+                # Check if external sensor was and is still connected
+                if self.battery.dbus_external_objects is not None and utils.EXTERNAL_SENSOR_DBUS_DEVICE not in get_bus().list_names():
+                    logger.error("External current sensor was disconnected, falling back to internal sensor")
+                    self.battery.dbus_external_objects = None
+
+                # Check if external current sensor was not connected and is now connected
+                elif self.battery.dbus_external_objects is None and utils.EXTERNAL_SENSOR_DBUS_DEVICE in get_bus().list_names():
+                    logger.info("External current sensor was connected, switching to external sensor")
+                    self.battery.setup_external_sensor()
+
             # Calculate the values for the battery
             self.battery.set_calculated_data()
 
@@ -834,18 +848,6 @@ class DbusHelper:
                 if time_since_first_error >= 60 * utils.BLOCK_ON_DISCONNECT_TIMEOUT_MINUTES and not utils.BLOCK_ON_DISCONNECT:
                     loop.quit()
 
-            # Check if external current sensor is still connected
-            if utils.EXTERNAL_CURRENT_SENSOR_DBUS_DEVICE is not None and utils.EXTERNAL_CURRENT_SENSOR_DBUS_PATH is not None:
-                # Check if external current sensor was and is still connected
-                if self.battery.dbus_external_objects is not None and utils.EXTERNAL_CURRENT_SENSOR_DBUS_DEVICE not in get_bus().list_names():
-                    logger.error("External current sensor was disconnected, falling back to internal sensor")
-                    self.battery.dbus_external_objects = None
-
-                # Check if external current sensor was not connected and is now connected
-                elif self.battery.dbus_external_objects is None and utils.EXTERNAL_CURRENT_SENSOR_DBUS_DEVICE in get_bus().list_names():
-                    logger.info("External current sensor was connected, switching to external sensor")
-                    self.battery.setup_external_current_sensor()
-
             # This is to manage CVCL
             self.battery.manage_charge_voltage()
 
@@ -888,12 +890,12 @@ class DbusHelper:
         Publishes the battery data to dbus and refresh it.
         """
         self._dbusservice["/System/NrOfCellsPerBattery"] = self.battery.cell_count
-        if utils.SOC_CALCULATION:
+        if utils.SOC_CALCULATION or utils.EXTERNAL_SENSOR_DBUS_PATH_SOC is not None:
             self._dbusservice["/Soc"] = round(self.battery.soc_calc, 2) if self.battery.soc_calc is not None else None
             # add original SOC for comparing
             self._dbusservice["/SocBms"] = round(self.battery.soc, 2) if self.battery.soc is not None else None
         else:
-            self._dbusservice["/Soc"] = round(self.battery.soc, 2) if self.battery.soc is not None else None
+            self._dbusservice["/Soc"] = round(self.battery.soc_calc, 2) if self.battery.soc is not None else None
         self._dbusservice["/Dc/0/Voltage"] = round(self.battery.voltage, 2) if self.battery.voltage is not None else None
         self._dbusservice["/Dc/0/Current"] = round(self.battery.current_calc, 2) if self.battery.current_calc is not None else None
         self._dbusservice["/Dc/0/Power"] = round(self.battery.power_calc, 2) if self.battery.power_calc is not None else None
