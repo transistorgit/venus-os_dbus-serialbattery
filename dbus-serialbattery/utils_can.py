@@ -30,6 +30,7 @@ class CanReceiverThread(threading.Thread):
         self.daemon = True
         self._running = True  # flag to control the running state
         self.can_bus = None
+        self.initial_interface_state = self.get_link_status(self.channel)
 
     @classmethod
     def get_instance(cls, channel, bustype) -> "CanReceiverThread":
@@ -83,19 +84,20 @@ class CanReceiverThread(threading.Thread):
                         logger.debug(f"[{self.channel}] Received: ID={hex(message.arbitration_id)}, Daten={message.data}")
 
                 except can.exceptions.CanOperationError as e:
-                    logger.error(f"CAN Bus {self.channel}: {e}")
+                    logger.debug(f"CAN Bus {self.channel}: {e}")
                     self.message_cache = {}
+                    sleep(1)
             else:
                 logger.error(">>> ERROR: CAN Bus interface is down")
                 self.message_cache = {}
-                sleep(5)
+                sleep(1)
 
             # self.message_cache.update(message_cache_temp)
 
             if int(time()) - last_message_time_stamp > 2 and self.message_cache:
                 logger.debug(f"CAN Bus {self.channel} has not received any messages in the last 2 seconds")
                 self.message_cache = {}
-                sleep(5)
+                sleep(2)
 
         self.stop()
 
@@ -104,8 +106,16 @@ class CanReceiverThread(threading.Thread):
         Stop the CAN receiver thread
         """
         self._running = False
+        # shutdown the CAN bus
+        if self.can_bus is not None:
+            self.can_bus.shutdown()
         self.can_bus = None
         logger.info("CAN receiver stopped")
+
+        if self.initial_interface_state is False:
+            # bring down the interface
+            logger.info(f"Bringing down CAN interface {self.channel}")
+            subprocess.run(["ip", "link", "set", f"{self.channel}", "down"], capture_output=True, text=True, check=True)
 
     def get_message_cache(self) -> dict:
         """
@@ -150,18 +160,19 @@ class CanReceiverThread(threading.Thread):
             raise
 
     @staticmethod
-    def setup_can(channel: str, bitrate: int = 250) -> None:
+    def setup_can(channel: str, bitrate: int = 250, force: bool = False) -> None:
         """
         Bring up the CAN interface
 
         :param channel: CAN interface name
-        :param bitrate: bitrate in kbps
+        :param bitrate: bitrate in kbps, default is 250 kbps
+        :param force: force to bring up/reset the interface, default is False
         """
         try:
             # check if CAN interface exists and is down
             result = subprocess.run(["ip", "link", "show", f"{channel}"], capture_output=True, text=True, check=True)
 
-            if "DOWN" not in result.stdout:
+            if not force and "DOWN" not in result.stdout:
                 logger.debug(f"Interface {channel} is already up")
                 return True
 
@@ -169,8 +180,10 @@ class CanReceiverThread(threading.Thread):
                 logger.error(result.stderr)
                 return False
 
-            # bring up the interface
+            # bring down the interface
             subprocess.run(["ip", "link", "set", f"{channel}", "down"], capture_output=True, text=True, check=True)
+
+            # bring up the interface with the given bitrate
             result = subprocess.run(
                 ["ip", "link", "set", f"{channel}", "type", "can", "bitrate", f"{bitrate * 1000}"],
                 capture_output=True,
@@ -181,6 +194,8 @@ class CanReceiverThread(threading.Thread):
 
             result = subprocess.run(["ip", "link", "set", f"{channel}", "up"], capture_output=True, text=True, check=True)
             result.check_returncode()
+
+            logger.info(f"CAN Bus {channel} is up with bitrate {bitrate} kbps")
 
         except Exception as e:
             logger.error(f"Error bringing up {channel}: {e}")

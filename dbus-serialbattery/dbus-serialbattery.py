@@ -373,7 +373,13 @@ def main():
 
         # if there are no messages in the cache after sleeping, something is wrong
         if not can_transport_interface.can_message_cache_callback().items():
-            logger.error("Error: found no messages on can bus, is it properly configured?")
+            if can_thread.initial_interface_state is False:
+                logger.info("Found no messages on can bus, trying with 500 kbps")
+                can_thread.setup_can(channel=port, bitrate=500, force=True)
+                sleep(2)
+
+        if not can_transport_interface.can_message_cache_callback().items():
+            logger.error(">>> ERROR: Found no messages on can bus, is it properly configured?")
 
         # check if BATTERY_ADDRESSES is not empty
         elif BATTERY_ADDRESSES:
