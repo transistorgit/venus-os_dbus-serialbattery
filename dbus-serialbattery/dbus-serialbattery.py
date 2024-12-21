@@ -369,10 +369,14 @@ def main():
 
         can_transport_interface = CanTransportInterface()
         can_transport_interface.can_message_cache_callback = can_thread.get_message_cache
-        can_transport_interface.can_bus = can_thread.bus
+        can_transport_interface.can_bus = can_thread.can_bus
+
+        # if there are no messages in the cache after sleeping, something is wrong
+        if not can_transport_interface.can_message_cache_callback().items():
+            logger.error("Error: found no messages on can bus, is it properly configured?")
 
         # check if BATTERY_ADDRESSES is not empty
-        if BATTERY_ADDRESSES:
+        elif BATTERY_ADDRESSES:
             logger.info(">>> CAN multi device mode")
             for address in BATTERY_ADDRESSES:
                 checkbatt = get_battery(port, address, can_transport_interface)

@@ -117,11 +117,6 @@ class Daly_Can(Battery):
             # get settings to check if the data is valid and the connection is working
             self.get_settings()
             result = self.refresh_data()
-
-            # if there are no messages in the cache after sleeping, something is wrong
-            if not result:
-                logger.error("Error: found no messages on can bus, is it properly configured?")
-
         except Exception:
             (
                 exception_type,

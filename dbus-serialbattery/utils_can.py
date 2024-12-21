@@ -20,7 +20,7 @@ class CanReceiverThread(threading.Thread):
         if (channel, bustype) in CanReceiverThread._instances:
             raise Exception("Instance already exists for this configuration!")
 
-        super().__init__()
+        super().__init__(name=f"CanReceiverThread-{channel}")
         self.channel = channel
         self.bustype = bustype
         self.message_cache = {}  # cache can frames here
@@ -28,7 +28,7 @@ class CanReceiverThread(threading.Thread):
         CanReceiverThread._instances[(channel, bustype)] = self
         self.daemon = True
         self._running = True  # flag to control the running state
-        self.bus = None
+        self.can_bus = None
 
     @classmethod
     def get_instance(cls, channel, bustype):
@@ -41,15 +41,15 @@ class CanReceiverThread(threading.Thread):
 
     def run(self):
         # bring up can interface on os level
-        self.setup_can(self.channel)
-        self.bus = can.interface.Bus(channel=self.channel, bustype=self.bustype)
+        # self.setup_can(self.channel)
+        self.can_bus = can.interface.Bus(channel=self.channel, bustype=self.bustype)
 
         # fetch the bitrate from the current port, for logging only
         bitrate = self.get_bitrate(self.channel)
         logger.info(f"Detected CAN Bus bitrate: {bitrate/1000:.0f} kbps")
 
         while self._running:
-            message = self.bus.recv(timeout=1.0)  # timeout 1 sec
+            message = self.can_bus.recv(timeout=1.0)  # timeout 1 sec
 
             if message is not None:
                 with self.cache_lock:
@@ -61,7 +61,7 @@ class CanReceiverThread(threading.Thread):
                     # cache data with arbitration id as key
                     self.message_cache[message.arbitration_id] = message.data
                 # print(f"[{self.channel}] Empfangen: ID={hex(message.arbitration_id)}, Daten={message.data}")
-        self.bus = None
+        self.can_bus = None
 
     def stop(self):
         self._running = False
