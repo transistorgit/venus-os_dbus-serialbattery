@@ -361,38 +361,48 @@ def main():
         try:
             can_thread = CanReceiverThread.get_instance(bustype="socketcan", channel=port)
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"Error while accessing CAN interface: {e}")
+            sleep(10)  # reduce log flooding
+            return
 
-        logger.debug("Wait shortly to make sure that all needed data is in the cache")
-        # Slowest message cycle trasmission is every 1 second, wait a bit more for the fist time to fetch all needed data
-        sleep(2)
+        # wait until thread has initialized
+        if not can_thread.can_initialised.wait(2):
+            logger.error("Timeout while accessing CAN interface")
+            return
 
         can_transport_interface = CanTransportInterface()
         can_transport_interface.can_message_cache_callback = can_thread.get_message_cache
         can_transport_interface.can_bus = can_thread.can_bus
 
-        # if there are no messages in the cache after sleeping, something is wrong
-        if not can_transport_interface.can_message_cache_callback().items():
-            if can_thread.initial_interface_state is False:
-                logger.info("Found no messages on can bus, trying with 500 kbps")
-                can_thread.setup_can(channel=port, bitrate=500, force=True)
-                sleep(2)
+        if BMS_TYPE == "Jkbms_Can":
+            logger.debug("Wait shortly to make sure that all needed data is in the cache")
+            # Slowest message cycle transmission is every 1 second, wait a bit more for the first time to fetch all needed data (only jk bms)
+            sleep(2)
 
-        if not can_transport_interface.can_message_cache_callback().items():
-            logger.error(">>> ERROR: Found no messages on can bus, is it properly configured?")
+            # if there are no messages in the cache after sleeping, something is wrong
+            if not can_transport_interface.can_message_cache_callback().items():
+                if can_thread.initial_interface_state is False:
+                    logger.info("Found no messages on can bus, trying with 500 kbps")
+                    can_thread.setup_can(channel=port, bitrate=500, force=True)
+                    sleep(2)
 
-        # check if BATTERY_ADDRESSES is not empty
-        elif BATTERY_ADDRESSES:
-            logger.info(">>> CAN multi device mode")
-            for address in BATTERY_ADDRESSES:
-                checkbatt = get_battery(port, address, can_transport_interface)
-                if checkbatt is not None:
-                    battery[address] = checkbatt
-                    logger.info("Successful battery connection at " + port + " and this device address " + str(address))
-                else:
-                    logger.warning("No battery connection at " + port + " and this device address " + str(address))
-        # use default address
-        else:
+            if not can_transport_interface.can_message_cache_callback().items():
+                logger.error(">>> ERROR: Found no messages on can bus, is it properly configured?")
+
+            # check if BATTERY_ADDRESSES is not empty
+            elif BATTERY_ADDRESSES:
+                logger.info(">>> CAN multi device mode")
+                for address in BATTERY_ADDRESSES:
+                    checkbatt = get_battery(port, address, can_transport_interface)
+                    if checkbatt is not None:
+                        battery[address] = checkbatt
+                        logger.info("Successful battery connection at " + port + " and this device address " + str(address))
+                    else:
+                        logger.warning("No battery connection at " + port + " and this device address " + str(address))
+            # use default address
+            else:
+                battery[0] = get_battery(port, None, can_transport_interface)
+        else:  # daly
             battery[0] = get_battery(port, None, can_transport_interface)
 
     # SERIAL

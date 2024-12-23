@@ -31,6 +31,7 @@ class CanReceiverThread(threading.Thread):
         self._running = True  # flag to control the running state
         self.can_bus = None
         self.initial_interface_state = self.get_link_status(self.channel)
+        self.can_initialised = threading.Event()
 
     @classmethod
     def get_instance(cls, channel, bustype) -> "CanReceiverThread":
@@ -62,6 +63,7 @@ class CanReceiverThread(threading.Thread):
 
         # timestamp of last received message
         last_message_time_stamp = 0
+        self.can_initialised.set()
 
         while self._running:
             link_status = self.get_link_status(self.channel)
