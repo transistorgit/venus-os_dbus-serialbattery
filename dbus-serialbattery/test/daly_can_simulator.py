@@ -27,7 +27,7 @@ Author:
 """
 import sys
 import os
-sys.path.insert(1, os.path.join(os.path.dirname(__file__), "ext"))
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), "../ext"))
 
 import can
 import struct
@@ -61,13 +61,12 @@ import time
 # We'll send data that fits those layouts and falls within "realistic" ranges.
 # -------------------------------------------------------------------------------------
 
+REQUEST_BASE = 0x18900040  # insert id at byte 3
+RESPONSE_BASE = 0x18904000  # insert id at byte 4
+
 # Offsets/constants used in daly_can.py
 CURRENT_ZERO_CONSTANT = 30000
 TEMP_ZERO_CONSTANT = 40
-
-# If you want to simulate a different number of cells, adapt this to match your scenario.
-# The driver uses this in "COMMAND_STATUS -> RESPONSE_STATUS" to parse the cell count.
-SIMULATED_CELL_COUNT = 8
 
 
 class DalyCanSimulator:
@@ -79,12 +78,12 @@ class DalyCanSimulator:
         print(f"Initialized Daly CAN BMS Simulator on interface '{channel}'.")
 
         # Store any stateful information here if needed, e.g., changing SoC over time.
+        # If you want to simulate a different number of cells, adapt this to match your scenario.
         self.simulated_soc = 75.0  # 75%
-        self.simulated_voltage = 52.0  # 52.0 V
         self.simulated_current = 0.0   # 0 A (idle)
         self.simulated_cycle_count = 123
         self.simulated_cells = [3.25, 3.27, 3.30, 3.28, 3.30, 3.27, 3.26, 3.29]
-        # Could be extended to 16 cells or more if you wish.
+        self.simulated_voltage = sum(self.simulated_cells)
 
     def run(self):
         """
@@ -118,9 +117,6 @@ class DalyCanSimulator:
                     except can.CanError as e:
                         print(f"ERROR sending response: {e}")
 
-            # Sleep a little to avoid tight looping
-            time.sleep(0.01)
-
     def process_request(self, arbitration_id, data):
         """
         Given a command arbitration ID, return the corresponding response
@@ -129,8 +125,10 @@ class DalyCanSimulator:
         # We'll match the known command arbitration IDs to produce responses.
         # Some commands in the driver might not be used or might not require immediate response.
         responses = []
+        id = (arbitration_id & 0x0000ff00) >> 8
+        arbitration_id = arbitration_id & 0xffff00ff  # clear out id for simpler matching
 
-        if arbitration_id == 0x18900140:  # COMMAND_SOC
+        if arbitration_id == 0x18900040:  # COMMAND_SOC
             # The driver expects an 8-byte response with layout: >HHHH
             #   voltage (uint16, deci-volts)
             #   tmp (uint16, unknown usage)
@@ -148,9 +146,9 @@ class DalyCanSimulator:
             soc_int = int(self.simulated_soc * 10)               # e.g. 75.0 -> 750
 
             payload = struct.pack(">HHHH", voltage_int, tmp_int, current_int, soc_int)
-            responses.append((0x18904001, payload))  # RESPONSE_SOC
+            responses.append((0x18904000 | id, payload))  # RESPONSE_SOC
 
-        elif arbitration_id == 0x18910140:  # COMMAND_MINMAX_CELL_VOLTS
+        elif arbitration_id == 0x18910040:  # COMMAND_MINMAX_CELL_VOLTS
             # Response is 6 bytes:  >hbhb
             # cell_max_voltage (int16, mV), cell_max_no (int8), cell_min_voltage (int16, mV), cell_min_no (int8)
             # The driver divides by 1000 for each voltage, and subtracts 1 from the cell indices.
@@ -162,9 +160,9 @@ class DalyCanSimulator:
             cell_min_mv = int(cell_min * 1000)
             # pack that into >hbhb
             payload = struct.pack(">hbhb", cell_max_mv, max_idx, cell_min_mv, min_idx)
-            responses.append((0x18914001, payload))  # RESPONSE_MINMAX_CELL_VOLTS
+            responses.append((0x18914000 | id, payload))  # RESPONSE_MINMAX_CELL_VOLTS
 
-        elif arbitration_id == 0x18920140:  # COMMAND_MINMAX_TEMP
+        elif arbitration_id == 0x18920040:  # COMMAND_MINMAX_TEMP
             # The driver expects 4 bytes: >BBBB
             # max_temp, max_no, min_temp, min_no
             # each is offset by TEMP_ZERO_CONSTANT in the driver.
@@ -180,9 +178,9 @@ class DalyCanSimulator:
                                   max_no,
                                   min_temp_c + TEMP_ZERO_CONSTANT,
                                   min_no)
-            responses.append((0x18924001, payload))  # RESPONSE_MINMAX_TEMP
+            responses.append((0x18924000 | id, payload))  # RESPONSE_MINMAX_TEMP
 
-        elif arbitration_id == 0x18930140:  # COMMAND_FET
+        elif arbitration_id == 0x18930040:  # COMMAND_FET
             # The driver expects 8 bytes: >b??BL
             # (status, charge_fet, discharge_fet, charge_cycles(uint16?), capacity_remain(uint32?))
             #
@@ -203,14 +201,14 @@ class DalyCanSimulator:
             # Note: in many Python versions, 'struct.pack' won't pack bools natively as single bits,
             # but this is how the driver unpacks. We'll pack them as 1 byte each for True/False.
             payload = struct.pack(">b??BL", status, charge_fet, discharge_fet, cycles, capacity_remain)
-            responses.append((0x18934001, payload))  # RESPONSE_FET
+            responses.append((0x18934000 | id, payload))  # RESPONSE_FET
 
-        elif arbitration_id == 0x18940140:  # COMMAND_STATUS
+        elif arbitration_id == 0x18940040:  # COMMAND_STATUS
             # The driver expects 8 bytes: >BB??BHx
             # cell_count, temp_sensors, charger_connected, load_connected, status(?), charge_cycles
             #
             # We'll say:
-            #  cell_count = SIMULATED_CELL_COUNT
+            #  cell_count = len(self.simulated_cells)
             #  temp_sensors = 2
             #  charger_connected = True
             #  load_connected = True
@@ -218,7 +216,7 @@ class DalyCanSimulator:
             #  charge_cycles = self.simulated_cycle_count
             #
             # The trailing 'x' in the struct means 1 byte of padding that we can set to 0.
-            cell_count = SIMULATED_CELL_COUNT
+            cell_count = len(self.simulated_cells)
             temp_sensors = 2
             charger_connected = True
             load_connected = True
@@ -238,9 +236,9 @@ class DalyCanSimulator:
                                   load_connected,
                                   status,
                                   cycles)
-            responses.append((0x18944001, payload))  # RESPONSE_STATUS
+            responses.append((0x18944000 | id, payload))  # RESPONSE_STATUS
 
-        elif arbitration_id == 0x18950140:  # COMMAND_CELL_VOLTS
+        elif arbitration_id == 0x18950040:  # COMMAND_CELL_VOLTS
             # The driver expects multiple 8-byte frames for cell voltages: >BHHHx
             #
             # The driver parses them in increments of 8 bytes:
@@ -281,22 +279,22 @@ class DalyCanSimulator:
             # We'll produce separate CAN messages for each 8-byte chunk.
             # The driver lumps them together in its cache.
             for fp in frames:
-                responses.append((0x18954001, fp))  # RESPONSE_CELL_VOLTS
+                responses.append((0x18954000 | id, fp))  # RESPONSE_CELL_VOLTS
 
-        elif arbitration_id == 0x18970140:  # COMMAND_CELL_BALANCE
+        elif arbitration_id == 0x18970040:  # COMMAND_CELL_BALANCE
             # The driver doesn't do anything with the cell balance response
             # aside from reading it, but let's send an 8-byte frame of zeros.
             # The driver might ignore it. In the real hardware it's used to
             # indicate which cells are balancing, etc.
             payload = bytes([0] * 8)
-            responses.append((0x18974001, payload))  # RESPONSE_CELL_BALANCE
+            responses.append((0x18974000 | id, payload))  # RESPONSE_CELL_BALANCE
 
-        elif arbitration_id == 0x18980140:  # COMMAND_ALARM
+        elif arbitration_id == 0x18980040:  # COMMAND_ALARM
             # The driver expects 8 bytes: >BBBBBBBB
             # e.g. alarm bits for voltage, temperature, current, etc.
             # We'll send zero for all to simulate "no alarms".
             payload = bytes([0] * 8)
-            responses.append((0x18984001, payload))  # RESPONSE_ALARM
+            responses.append((0x18984000 | id, payload))  # RESPONSE_ALARM
 
         # If arbitration_id is recognized, return the list of responses; otherwise None.
         if responses:
@@ -311,4 +309,3 @@ if __name__ == "__main__":
         simulator.run()
     except KeyboardInterrupt:
         print("\nShutting down Daly CAN Simulator.")
-   
