@@ -178,12 +178,12 @@ def main():
 
         return True
 
-    def get_battery(_port: str, _modbus_address: hex = None, can_transport_interface: object = None) -> Union[Battery, None]:
+    def get_battery(_port: str, _bus_address: hex = None, can_transport_interface: object = None) -> Union[Battery, None]:
         """
         Attempts to establish a connection to the battery and returns the battery object if successful.
 
         :param _port: The port to connect to.
-        :param _modbus_address: The Modbus address to connect to (optional).
+        :param _bus_address: The Modbus/CAN address to connect to (optional).
         :return: The battery object if a connection is established, otherwise None.
         """
         # Try to establish communications with the battery 3 times, else exit
@@ -195,9 +195,9 @@ def main():
             for test in expected_bms_types:
                 # noinspection PyBroadException
                 try:
-                    if _modbus_address is not None:
+                    if _bus_address is not None:
                         # Convert hex string to bytes
-                        _bms_address = bytes.fromhex(_modbus_address.replace("0x", ""))
+                        _bms_address = bytes.fromhex(_bus_address.replace("0x", ""))
                     elif "address" in test:
                         _bms_address = test["address"]
                     else:
@@ -373,8 +373,7 @@ def main():
         can_transport_interface = CanTransportInterface()
         can_transport_interface.can_message_cache_callback = can_thread.get_message_cache
         can_transport_interface.can_bus = can_thread.can_bus
-
-        if BMS_TYPE == "Jkbms_Can":
+        if BMS_TYPE[0] == "Jkbms_Can":
             logger.debug("Wait shortly to make sure that all needed data is in the cache")
             # Slowest message cycle transmission is every 1 second, wait a bit more for the first time to fetch all needed data (only jk bms)
             sleep(2)
@@ -402,8 +401,15 @@ def main():
             # use default address
             else:
                 battery[0] = get_battery(port, None, can_transport_interface)
-        else:  # daly
-            battery[0] = get_battery(port, None, can_transport_interface)
+        elif BMS_TYPE[0] == "Daly_Can":
+            if len(BATTERY_ADDRESSES) == 0:
+                battery[0] = get_battery(port, None, can_transport_interface)
+            else:
+                battery = {key: get_battery(port, address, can_transport_interface) for key, address in enumerate(BATTERY_ADDRESSES)}
+                battery = {key: bms for key, bms in battery.items() if bms is not None}  # remove non existent batteries
+        else:
+            logger.warning(f"Unknown CAN BMS type {BMS_TYPE[0]}")
+            return
 
     # SERIAL
     else:
@@ -435,9 +441,7 @@ def main():
             battery_found = True
 
     if not battery_found:
-        logger.error(
-            "ERROR >>> No battery connection at " + port + (" and this Modbus addresses: " + ", ".join(BATTERY_ADDRESSES) if BATTERY_ADDRESSES else "")
-        )
+        logger.error("ERROR >>> No battery connection at " + port + (" and this bus addresses: " + ", ".join(BATTERY_ADDRESSES) if BATTERY_ADDRESSES else ""))
         exit_driver(None, None, 1)
 
     # Have a mainloop, so we can send/receive asynchronous calls to and from dbus
