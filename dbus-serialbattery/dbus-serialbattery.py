@@ -336,7 +336,7 @@ def main():
                 battery[0] = testbms
 
     # CAN
-    elif port.startswith("can") or port.startswith("vecan"):
+    elif port.startswith(("can", "vecan", "vcan")):
         """
         Import CAN classes only if it's a CAN port; otherwise, the driver won't start due to missing Python modules.
         This prevents issues when using the driver exclusively with a serial connection.

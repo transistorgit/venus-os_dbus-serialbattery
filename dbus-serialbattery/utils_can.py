@@ -148,10 +148,12 @@ class CanReceiverThread(threading.Thread):
     def get_bitrate(channel: str) -> int:
         """
         Fetch the bitrate of the CAN interface
-
         :param channel: CAN interface name
         :return: bitrate in bps
         """
+        # vcan doesn't support bitrate, so return static value
+        if channel.startswith("vcan"):
+            return 250000
         try:
             result = subprocess.run(["ip", "-details", "link", "show", channel], capture_output=True, text=True, check=True)
             for line in result.stdout.split("\n"):
