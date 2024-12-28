@@ -14,7 +14,7 @@ import serial
 
 
 # CONSTANTS
-DRIVER_VERSION: str = "2.0.20241221dev"
+DRIVER_VERSION: str = "2.0.20250103dev"
 """
 current version of the driver
 """
@@ -263,7 +263,7 @@ CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL: float = get_float_from_config("DEFAULT
 CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART")
 CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT")
 MAX_VOLTAGE_TIME_SEC: int = get_int_from_config("DEFAULT", "MAX_VOLTAGE_TIME_SEC")
-SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT: int = get_int_from_config("DEFAULT", "SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT")
+SWITCH_TO_BULK_SOC_THRESHOLD: int = get_int_from_config("DEFAULT", "SWITCH_TO_BULK_SOC_THRESHOLD")
 
 
 # --------- Cell Voltage Limitation (affecting CVL) ---------
@@ -406,6 +406,7 @@ POLL_INTERVAL: Union[float, None] = float(config["DEFAULT"]["POLL_INTERVAL"]) * 
 Poll interval in milliseconds
 """
 PUBLISH_CONFIG_VALUES: bool = get_bool_from_config("DEFAULT", "PUBLISH_CONFIG_VALUES")
+PUBLISH_BATTERY_DATA_AS_JSON: bool = get_bool_from_config("DEFAULT", "PUBLISH_BATTERY_DATA_AS_JSON")
 BATTERY_CELL_DATA_FORMAT: int = get_int_from_config("DEFAULT", "BATTERY_CELL_DATA_FORMAT")
 MIDPOINT_ENABLE: bool = get_bool_from_config("DEFAULT", "MIDPOINT_ENABLE")
 TEMPERATURE_SOURCE_BATTERY: int = get_int_from_config("DEFAULT", "TEMPERATURE_SOURCE_BATTERY")

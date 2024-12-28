@@ -119,8 +119,9 @@ def main():
                 battery[0].disconnect()
 
         # Stop the CanReceiverThread
-        elif port.startswith("can") or port.startswith("vecan"):
-            can_thread.stop()
+        elif port.startswith(("can", "vecan", "vcan")):
+            if "can_thread" in globals() and can_thread is not None:
+                can_thread.stop()
 
         # Close the serial connection
         else:
@@ -340,6 +341,10 @@ def main():
         """
         Import CAN classes only if it's a CAN port; otherwise, the driver won't start due to missing Python modules.
         This prevents issues when using the driver exclusively with a serial connection.
+
+        can: Older GX devices and Raspberry Pi with CAN hat
+        vecan: Newer Venus GX devices
+        vcan: Virtual CAN interface for testing
         """
         from bms.daly_can import Daly_Can
         from bms.jkbms_can import Jkbms_Can
@@ -355,6 +360,11 @@ def main():
 
         expected_bms_types = [battery_type for battery_type in supported_bms_types if battery_type["bms"].__name__ in BMS_TYPE or len(BMS_TYPE) == 0]
 
+        # If no BMS type is supported, use all supported BMS types
+        if len(expected_bms_types) == 0:
+            logger.warning(f"No supported CAN BMS type found in BMS_TYPE: {', '.join(BMS_TYPE)}. Using all supported BMS types.")
+            expected_bms_types = supported_bms_types
+
         # start the corresponding CanReceiverThread if BMS for this type found
         from utils_can import CanReceiverThread, CanTransportInterface
 
@@ -362,54 +372,39 @@ def main():
             can_thread = CanReceiverThread.get_instance(bustype="socketcan", channel=port)
         except Exception as e:
             logger.error(f"Error while accessing CAN interface: {e}")
-            sleep(10)  # reduce log flooding
-            return
+            sleep(60)
+            exit_driver(None, None, 1)
 
         # wait until thread has initialized
         if not can_thread.can_initialised.wait(2):
             logger.error("Timeout while accessing CAN interface")
-            return
+            sleep(60)
+            exit_driver(None, None, 1)
 
         can_transport_interface = CanTransportInterface()
         can_transport_interface.can_message_cache_callback = can_thread.get_message_cache
         can_transport_interface.can_bus = can_thread.can_bus
-        if BMS_TYPE[0] == "Jkbms_Can":
-            logger.debug("Wait shortly to make sure that all needed data is in the cache")
-            # Slowest message cycle transmission is every 1 second, wait a bit more for the first time to fetch all needed data (only jk bms)
+        logger.debug("Wait shortly to make sure that all needed data is in the cache")
+        # Slowest message cycle transmission is every 1 second, wait a bit more for the first time to fetch all needed data (only jk bms)
+        sleep(2)
+        addresses = [None] if len(BATTERY_ADDRESSES) == 0 else BATTERY_ADDRESSES  # use default address, if not configured
+
+        for busspeed in [250, 500]:
+            for address in addresses:
+                bat = get_battery(port, address, can_transport_interface)
+                if bat:
+                    battery[address] = bat
+                    logger.info(f"Successful battery connection at {port} and this address {str(address)}")
+                else:
+                    logger.warning(f"No battery connection at {port} and this address {str(address)}")
+
+            # if we've found at least 1 battery, stop the search here. otherwise retry with other bus speeds
+            if len(battery) > 0:
+                break
+
+            logger.info(f"Found no devices on can bus, retrying with {busspeed} kbps")
+            can_thread.setup_can(channel=port, bitrate=busspeed, force=True)
             sleep(2)
-
-            # if there are no messages in the cache after sleeping, something is wrong
-            if not can_transport_interface.can_message_cache_callback().items():
-                if can_thread.initial_interface_state is False:
-                    logger.info("Found no messages on can bus, trying with 500 kbps")
-                    can_thread.setup_can(channel=port, bitrate=500, force=True)
-                    sleep(2)
-
-            if not can_transport_interface.can_message_cache_callback().items():
-                logger.error(">>> ERROR: Found no messages on can bus, is it properly configured?")
-
-            # check if BATTERY_ADDRESSES is not empty
-            elif BATTERY_ADDRESSES:
-                logger.info(">>> CAN multi device mode")
-                for address in BATTERY_ADDRESSES:
-                    checkbatt = get_battery(port, address, can_transport_interface)
-                    if checkbatt is not None:
-                        battery[address] = checkbatt
-                        logger.info("Successful battery connection at " + port + " and this device address " + str(address))
-                    else:
-                        logger.warning("No battery connection at " + port + " and this device address " + str(address))
-            # use default address
-            else:
-                battery[0] = get_battery(port, None, can_transport_interface)
-        elif BMS_TYPE[0] == "Daly_Can":
-            if len(BATTERY_ADDRESSES) == 0:
-                battery[0] = get_battery(port, None, can_transport_interface)
-            else:
-                battery = {key: get_battery(port, address, can_transport_interface) for key, address in enumerate(BATTERY_ADDRESSES)}
-                battery = {key: bms for key, bms in battery.items() if bms is not None}  # remove non existent batteries
-        else:
-            logger.warning(f"Unknown CAN BMS type {BMS_TYPE[0]}")
-            return
 
     # SERIAL
     else:
@@ -420,16 +415,16 @@ def main():
         # else the error throw a lot of timeouts
         sleep(16)
 
-        # check if BATTERY_ADDRESSES is not empty
+        # Check if BATTERY_ADDRESSES is not empty
         if BATTERY_ADDRESSES:
             for address in BATTERY_ADDRESSES:
-                checkbatt = get_battery(port, address)
-                if checkbatt is not None:
-                    battery[address] = checkbatt
-                    logger.info("Successful battery connection at " + port + " and this Modbus address " + str(address))
+                found_battery = get_battery(port, address)
+                if found_battery:
+                    battery[address] = found_battery
+                    logger.info(f"Successful battery connection at {port} and this address {address}")
                 else:
-                    logger.warning("No battery connection at " + port + " and this Modbus address " + str(address))
-        # use default address
+                    logger.warning(f"No battery connection at {port} and this address {address}")
+        # Use default address
         else:
             battery[0] = get_battery(port)
 
