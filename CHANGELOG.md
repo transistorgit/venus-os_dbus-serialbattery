@@ -50,6 +50,7 @@
 * Changed: Daly CAN - Refactored driver to match new CAN standard by @mr-manuel and @transistorgit
 * Changed: Dependencies are now shipped with the driver and not downloaded anymore which allows a complete offline installation by @mr-manuel
 * Changed: Driver was moved from `/data/etc/dbus-serialbattery` to `/data/apps/dbus-serialbattery` by @mr-manuel
+* Changed: Fix `/Info/BatteryLowVoltage` remaining `None` https://github.com/mr-manuel/venus-os_dbus-serialbattery/issues/145 by @mr-manuel
 * Changed: Fix missing charge/discharge fet status for EG4 LifePower, EG4 LL and Renogy. Fixes https://github.com/mr-manuel/venus-os_dbus-serialbattery/issues/129 by @mr-manuel
 * Changed: Fixed issue, when calculated SOC is restored from dbus and BMS SOC is 0 by @mr-manuel
 * Changed: Improved driver and `config.default.ini` descriptions by @mr-manuel
