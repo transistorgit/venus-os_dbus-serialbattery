@@ -20,7 +20,7 @@ from utils import (
 from struct import unpack_from
 from time import time
 import sys
-from can import Message
+from can import Message, CanOperationError
 from time import sleep
 
 
@@ -154,27 +154,30 @@ class Daly_Can(Battery):
         data = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00")
 
         if self.can_transport_interface.can_bus is None:
-            raise RuntimeError("Can Interface not initialised")
+            raise RuntimeError("CAN Interface not initialised")
 
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_SOC][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_MINMAX_CELL_VOLTS][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_MINMAX_TEMP][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_FET][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_STATUS][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_CELL_VOLTS][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        # unused
-        # message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_TEMP][0] & 0xffff00ff) | (self.device_address << 8), data=data)
-        # self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_CELL_BALANCE][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
-        message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_ALARM][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
-        self.can_transport_interface.can_bus.send(message, timeout=0.2)
+        try:
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_SOC][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_MINMAX_CELL_VOLTS][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_MINMAX_TEMP][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_FET][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_STATUS][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_CELL_VOLTS][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            # unused
+            # message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_TEMP][0] & 0xffff00ff) | (self.device_address << 8), data=data)
+            # self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_CELL_BALANCE][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+            message = Message(arbitration_id=(self.CAN_FRAMES[self.COMMAND_ALARM][0] & 0xFFFF00FF) | (self.device_address << 8), data=data)
+            self.can_transport_interface.can_bus.send(message, timeout=0.2)
+        except CanOperationError:
+            logger.error("CAN Bus Error while sending data. Check cabeling")
 
     def read_daly_can(self):
         try:
