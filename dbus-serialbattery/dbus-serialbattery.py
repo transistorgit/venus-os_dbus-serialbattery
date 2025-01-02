@@ -119,8 +119,9 @@ def main():
                 battery[0].disconnect()
 
         # Stop the CanReceiverThread
-        elif port.startswith("can") or port.startswith("vecan"):
-            can_thread.stop()
+        elif port.startswith(("can", "vecan", "vcan")):
+            if "can_thread" in globals() and can_thread is not None:
+                can_thread.stop()
 
         # Close the serial connection
         else:
@@ -340,6 +341,10 @@ def main():
         """
         Import CAN classes only if it's a CAN port; otherwise, the driver won't start due to missing Python modules.
         This prevents issues when using the driver exclusively with a serial connection.
+
+        can: Older GX devices and Raspberry Pi with CAN hat
+        vecan: Newer Venus GX devices
+        vcan: Virtual CAN interface for testing
         """
         from bms.daly_can import Daly_Can
         from bms.jkbms_can import Jkbms_Can
@@ -355,6 +360,11 @@ def main():
 
         expected_bms_types = [battery_type for battery_type in supported_bms_types if battery_type["bms"].__name__ in BMS_TYPE or len(BMS_TYPE) == 0]
 
+        # If no BMS type is supported, use all supported BMS types
+        if len(expected_bms_types) == 0:
+            logger.warning(f"No supported CAN BMS type found in BMS_TYPE: {', '.join(BMS_TYPE)}. Using all supported BMS types.")
+            expected_bms_types = supported_bms_types
+
         # start the corresponding CanReceiverThread if BMS for this type found
         from utils_can import CanReceiverThread, CanTransportInterface
 
@@ -362,13 +372,14 @@ def main():
             can_thread = CanReceiverThread.get_instance(bustype="socketcan", channel=port)
         except Exception as e:
             logger.error(f"Error while accessing CAN interface: {e}")
-            sleep(10)  # reduce log flooding
-            return
+            sleep(60)
+            exit_driver(None, None, 1)
 
         # wait until thread has initialized
         if not can_thread.can_initialised.wait(2):
             logger.error("Timeout while accessing CAN interface")
-            return
+            sleep(60)
+            exit_driver(None, None, 1)
 
         can_transport_interface = CanTransportInterface()
         can_transport_interface.can_message_cache_callback = can_thread.get_message_cache
@@ -404,16 +415,16 @@ def main():
         # else the error throw a lot of timeouts
         sleep(16)
 
-        # check if BATTERY_ADDRESSES is not empty
+        # Check if BATTERY_ADDRESSES is not empty
         if BATTERY_ADDRESSES:
             for address in BATTERY_ADDRESSES:
-                checkbatt = get_battery(port, address)
-                if checkbatt is not None:
-                    battery[address] = checkbatt
-                    logger.info("Successful battery connection at " + port + " and this address " + str(address))
+                found_battery = get_battery(port, address)
+                if found_battery:
+                    battery[address] = found_battery
+                    logger.info(f"Successful battery connection at {port} and this address {address}")
                 else:
-                    logger.warning("No battery connection at " + port + " and this address " + str(address))
-        # use default address
+                    logger.warning(f"No battery connection at {port} and this address {address}")
+        # Use default address
         else:
             battery[0] = get_battery(port)
 
