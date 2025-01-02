@@ -703,13 +703,23 @@ class Battery(ABC):
                     and self.allow_max_voltage
                 ):
                     self.max_voltage_start_time = current_time
-                # allow max voltage again, if cells are unbalanced or SoC threshold is reached
+
+                # allow max voltage again, if:
+                # - SoC threshold is reached
+                # - Cells are unbalanced
+                # - SoC reset was requested
                 elif (
-                    utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc or voltage_cell_diff >= utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT
+                    utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc
+                    or voltage_cell_diff >= utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT
+                    or self.soc_reset_requested
                 ) and not self.allow_max_voltage:
                     self.allow_max_voltage = True
+
+                # do nothing (only for readability)
                 else:
                     pass
+
+            # timer started
             else:
                 if voltage_cell_diff > utils.CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART:
                     self.max_voltage_start_time = current_time
@@ -794,6 +804,7 @@ class Battery(ABC):
 
                 if self.get_balancing() and voltage_cell_diff >= utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT:
                     self.charge_mode += " + Balancing"
+
             # Float mode
             else:
                 float_voltage = round((utils.FLOAT_CELL_VOLTAGE * self.cell_count), 2)
@@ -964,17 +975,17 @@ class Battery(ABC):
             voltage_cell_diff = self.get_max_cell_voltage() - self.get_min_cell_voltage()
 
             if self.max_voltage_start_time is None:
-                # check if max voltage is reached and start timer to keep max voltage
+                # start timer, if max voltage is reached
                 if (self.max_battery_voltage - utils.VOLTAGE_DROP) <= voltage_sum and self.allow_max_voltage:
-                    # example 2
                     self.max_voltage_start_time = current_time
 
-                # check if reset soc is greater than battery soc
-                # this prevents flapping between max and float voltage
-                elif utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc and not self.allow_max_voltage:
+                # allow max voltage again, if:
+                # - SoC threshold is reached
+                # - SoC reset was requested
+                elif (utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc or self.soc_reset_requested) and not self.allow_max_voltage:
                     self.allow_max_voltage = True
 
-                # do nothing
+                # do nothing (only for readability)
                 else:
                     pass
 
@@ -985,9 +996,7 @@ class Battery(ABC):
                     self.allow_max_voltage = False
                     self.max_voltage_start_time = None
 
-                else:
-                    pass
-
+            # Bulk or Absorption mode
             if self.allow_max_voltage:
                 self.control_voltage = self.max_battery_voltage
                 self.charge_mode = "Bulk" if self.max_voltage_start_time is None else "Absorption"
@@ -995,6 +1004,7 @@ class Battery(ABC):
                 if self.max_battery_voltage == self.soc_reset_battery_voltage:
                     self.charge_mode += " & SoC Reset"
 
+            # Float mode
             else:
                 # check if battery changed from bulk/absoprtion to float
                 if self.charge_mode is not None and not self.charge_mode.startswith("Float"):
