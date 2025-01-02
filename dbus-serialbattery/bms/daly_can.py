@@ -33,6 +33,7 @@ class Daly_Can(Battery):
         self.cell_max_voltage = None
         self.cell_min_no = None
         self.cell_max_no = None
+        # self.cell_count = 0  # init here if testing with bms without battery connected
         self.poll_interval = 1000
         self.poll_step = 0
         self.type = self.BATTERYTYPE
