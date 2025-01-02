@@ -705,7 +705,7 @@ class Battery(ABC):
                     self.max_voltage_start_time = current_time
                 # allow max voltage again, if cells are unbalanced or SoC threshold is reached
                 elif (
-                    utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT > self.soc_calc or voltage_cell_diff >= utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT
+                    utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc or voltage_cell_diff >= utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT
                 ) and not self.allow_max_voltage:
                     self.allow_max_voltage = True
                 else:
@@ -720,15 +720,15 @@ class Battery(ABC):
                     self.allow_max_voltage = False
                     self.max_voltage_start_time = None
 
-                    if self.soc_calc <= utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT:
+                    if self.soc_calc <= utils.SWITCH_TO_BULK_SOC_THRESHOLD:
                         # set error code, to show in the GUI that something is wrong
                         self.manage_error_code(8)
 
                         # write to log, that reset to float was not possible
                         logger.error(
                             f"Could not change to float voltage. Battery SoC ({self.soc_calc}%) is lower"
-                            + f" than SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT ({utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT}%)."
-                            + " Please reset SoC manually or lower the SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT in the"
+                            + f" than SWITCH_TO_BULK_SOC_THRESHOLD ({utils.SWITCH_TO_BULK_SOC_THRESHOLD}%)."
+                            + " Please reset SoC manually or lower the SWITCH_TO_BULK_SOC_THRESHOLD in the"
                             + ' "config.ini".'
                         )
 
@@ -901,8 +901,8 @@ class Battery(ABC):
 
                 self.charge_mode_debug_bulk = (
                     "-- switch to bulk requirements (Linear Mode) --\n"
-                    + "a) SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT: "
-                    + f"{utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT} > {self.soc_calc} :soc_calc\n"
+                    + "a) SWITCH_TO_BULK_SOC_THRESHOLD: "
+                    + f"{utils.SWITCH_TO_BULK_SOC_THRESHOLD} > {self.soc_calc} :soc_calc\n"
                     + "OR\n"
                     + f"b) voltage_cell_diff: {voltage_cell_diff:.3f} >= "
                     + f"{utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT:.3f} "
@@ -971,7 +971,7 @@ class Battery(ABC):
 
                 # check if reset soc is greater than battery soc
                 # this prevents flapping between max and float voltage
-                elif utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT > self.soc_calc and not self.allow_max_voltage:
+                elif utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc and not self.allow_max_voltage:
                     self.allow_max_voltage = True
 
                 # do nothing
@@ -1071,8 +1071,8 @@ class Battery(ABC):
 
                 self.charge_mode_debug_bulk = (
                     "-- switch to bulk requirements (Step Mode) --\n"
-                    + "SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT: "
-                    + f"{utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT} > {self.soc_calc} :soc_calc\n"
+                    + "SWITCH_TO_BULK_SOC_THRESHOLD: "
+                    + f"{utils.SWITCH_TO_BULK_SOC_THRESHOLD} > {self.soc_calc} :soc_calc\n"
                     + "AND\n"
                     + f"allow_max_voltage: {self.allow_max_voltage} == False"
                 )
