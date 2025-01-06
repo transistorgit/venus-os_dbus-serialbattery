@@ -565,12 +565,7 @@ class Battery(ABC):
 
         # apply dynamic charging voltage
         if utils.CVCM_ENABLE:
-            # apply linear charging voltage
-            if utils.LINEAR_LIMITATION_ENABLE:
-                self.manage_charge_voltage_linear()
-            # apply step charging voltage
-            else:
-                self.manage_charge_voltage_step()
+            self.manage_charge_voltage_limit()
         # apply fixed charging voltage
         else:
             self.control_voltage = round(self.max_battery_voltage, 2)
@@ -660,9 +655,9 @@ class Battery(ABC):
         else:
             self.max_battery_voltage = round(utils.MAX_CELL_VOLTAGE * self.cell_count, 2)
 
-    def manage_charge_voltage_linear(self) -> None:
+    def manage_charge_voltage_limit(self) -> None:
         """
-        Manages the charge voltage using linear interpolation by setting `self.control_voltage`.
+        Manages the charge voltage by setting `self.control_voltage`.
 
         :return: None
         """
@@ -855,7 +850,10 @@ class Battery(ABC):
 
                 self.charge_mode = charge_mode
 
-            self.charge_mode += " (Linear Mode)"
+            if utils.CHARGE_MODE == 1:
+                self.charge_mode += " (Linear Mode)"
+            else:
+                self.charge_mode += " (Step Mode)"
 
             # debug information
             if utils.GUI_PARAMETERS_SHOW_ADDITIONAL_INFO or logger.isEnabledFor(logging.DEBUG):
@@ -954,150 +952,6 @@ class Battery(ABC):
             return True
 
         return False
-
-    def manage_charge_voltage_step(self) -> None:
-        """
-        Manages the charge voltage using a step function by setting `self.control_voltage`.
-
-        :return: None
-        """
-        voltage_sum = 0
-        time_diff = 0
-        current_time = int(time())
-
-        try:
-            # calculate battery sum
-            for i in range(self.cell_count):
-                voltage = self.get_cell_voltage(i)
-                if voltage:
-                    voltage_sum += voltage
-
-            voltage_cell_diff = self.get_max_cell_voltage() - self.get_min_cell_voltage()
-
-            if self.max_voltage_start_time is None:
-                # start timer, if max voltage is reached
-                if (self.max_battery_voltage - utils.VOLTAGE_DROP) <= voltage_sum and self.allow_max_voltage:
-                    self.max_voltage_start_time = current_time
-
-                # allow max voltage again, if:
-                # - SoC threshold is reached
-                # - SoC reset was requested
-                elif (utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc or self.soc_reset_requested) and not self.allow_max_voltage:
-                    self.allow_max_voltage = True
-
-                # do nothing (only for readability)
-                else:
-                    pass
-
-            # timer started
-            else:
-                time_diff = current_time - self.max_voltage_start_time
-                if utils.MAX_VOLTAGE_TIME_SEC < time_diff:
-                    self.allow_max_voltage = False
-                    self.max_voltage_start_time = None
-
-            # Bulk or Absorption mode
-            if self.allow_max_voltage:
-                self.control_voltage = self.max_battery_voltage
-                self.charge_mode = "Bulk" if self.max_voltage_start_time is None else "Absorption"
-
-                if self.max_battery_voltage == self.soc_reset_battery_voltage:
-                    self.charge_mode += " & SoC Reset"
-
-            # Float mode
-            else:
-                # check if battery changed from bulk/absoprtion to float
-                if self.charge_mode is not None and not self.charge_mode.startswith("Float"):
-                    # Assume battery SOC ist 100% at this stage
-                    self.trigger_soc_reset()
-
-                    # Set timestamp of full charge for history
-                    if "timestamp_last_full_charge" not in self.history.exclude_values_to_calculate:
-                        self.history.timestamp_last_full_charge = int(time())
-
-                    if utils.SOC_CALCULATION:
-                        logger.info("SOC set to 100%")
-                        self.soc_calc_capacity_remain = self.capacity
-                        self.soc_calc_reset_start_time = None
-
-                self.control_voltage = round(utils.FLOAT_CELL_VOLTAGE * self.cell_count, 2)
-                self.charge_mode = "Float"
-                # reset bulk when going into float
-                if self.soc_reset_requested:
-                    # logger.info("set soc_reset_requested to False")
-                    self.soc_reset_requested = False
-                    self.soc_reset_last_reached = current_time
-
-            self.charge_mode += " (Step Mode)"
-
-            # debug information
-            if utils.GUI_PARAMETERS_SHOW_ADDITIONAL_INFO or logger.isEnabledFor(logging.DEBUG):
-
-                soc_reset_days_ago = round((current_time - self.soc_reset_last_reached) / 60 / 60 / 24, 2)
-                soc_reset_in_days = round(utils.SOC_RESET_AFTER_DAYS - soc_reset_days_ago, 2)
-
-                driver_start_time_dt = datetime.fromtimestamp(self.driver_start_time)
-                formatted_time = driver_start_time_dt.strftime("%Y.%m.%d %H:%M:%S")
-
-                self.charge_mode_debug = (
-                    f"driver started: {formatted_time} • running since: {self.get_seconds_to_string(int(time()) - self.driver_start_time)}\n"
-                    + f"max_battery_voltage: {(self.max_battery_voltage):.2f} V • "
-                    + f"control_voltage: {self.control_voltage:.2f} V\n"
-                    + f"voltage: {self.voltage:.2f} V • "
-                    + f"VOLTAGE_DROP: {utils.VOLTAGE_DROP:.2f} V\n"
-                    + f"voltage_sum: {voltage_sum:.2f} V • "
-                    + f"voltage_cell_diff: {voltage_cell_diff:.3f} V\n"
-                    + f"max_cell_voltage: {self.get_max_cell_voltage()} V\n"
-                    + f"soc: {self.soc}% • soc_calc: {self.soc_calc}%\n"
-                    + f"current: {self.current:.2f}A"
-                    + (f" • current_calc: {self.current_calc:.2f} A\n" if self.current_calc is not None else "\n")
-                    + f"current_time: {current_time}\n"
-                    + f"linear_cvl_last_set: {self.linear_cvl_last_set}\n"
-                    + f"charge_fet: {self.charge_fet} • control_allow_charge: {self.control_allow_charge}\n"
-                    + f"discharge_fet: {self.discharge_fet} • "
-                    + f"control_allow_discharge: {self.control_allow_discharge}\n"
-                    + f"block_because_disconnect: {self.block_because_disconnect}\n"
-                    + "soc_reset_last_reached: "
-                    + ("Never" if self.soc_reset_last_reached == 0 else f"{soc_reset_days_ago}")
-                    + f" d ago, next in {soc_reset_in_days} d\n"
-                    + (
-                        f"soc_calc_capacity_remain: {self.soc_calc_capacity_remain:.3f}/{self.capacity} Ah\n"
-                        if self.soc_calc_capacity_remain is not None
-                        else ""
-                    )
-                    + "soc_calc_reset_start_time: "
-                    + (f"{int(current_time - self.soc_calc_reset_start_time)}/60" if self.soc_calc_reset_start_time is not None else "None")
-                )
-
-                self.charge_mode_debug_float = (
-                    "-- switch to float requirements (Step Mode) --\n"
-                    + f"max_battery_voltage: {(self.max_battery_voltage - utils.VOLTAGE_DROP):.2f} <= "
-                    + f"{voltage_sum:.2f} :voltage_sum\n"
-                    + "AND\n"
-                    + f"allow_max_voltage: {self.allow_max_voltage} == True\n"
-                    + "AND\n"
-                    + f"MAX_VOLTAGE_TIME_SEC: {utils.MAX_VOLTAGE_TIME_SEC} < {time_diff} :time_diff"
-                )
-
-                self.charge_mode_debug_bulk = (
-                    "-- switch to bulk requirements (Step Mode) --\n"
-                    + "SWITCH_TO_BULK_SOC_THRESHOLD: "
-                    + f"{utils.SWITCH_TO_BULK_SOC_THRESHOLD} > {self.soc_calc} :soc_calc\n"
-                    + "AND\n"
-                    + f"allow_max_voltage: {self.allow_max_voltage} == False"
-                )
-
-        except TypeError:
-            self.control_voltage = round((utils.FLOAT_CELL_VOLTAGE * self.cell_count), 2)
-            self.charge_mode = "Error, please check the logs!"
-
-            # set error code, to show in the GUI that something is wrong
-            self.manage_error_code(8)
-
-            exception_type, exception_object, exception_traceback = sys.exc_info()
-            file = exception_traceback.tb_frame.f_code.co_filename
-            line = exception_traceback.tb_lineno
-            logger.error("Non blocking exception occurred: " + f"{repr(exception_object)} of type {exception_type} in {file} line #{line}")
 
     def manage_charge_and_discharge_current(self) -> None:
         """
