@@ -934,8 +934,8 @@ class Battery(ABC):
 
     def set_cvl_linear(self, control_voltage: float) -> bool:
         """
-        Set CVL only once every `LINEAR_RECALCULATION_EVERY` seconds or if the CVL changes more than
-        `LINEAR_RECALCULATION_ON_PERC_CHANGE` percent.
+        Set CVL only once every `CVL_RECALCULATION_EVERY` seconds or if the CVL changes more than
+        `CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE` percent.
 
         TODO: Seems to not be needed anymore. Will be removed in future.
 
@@ -944,8 +944,12 @@ class Battery(ABC):
         current_time = int(time())
         diff = abs(self.control_voltage - control_voltage) if self.control_voltage is not None else 0
 
-        if utils.LINEAR_RECALCULATION_EVERY <= current_time - self.linear_cvl_last_set or (
-            diff >= self.control_voltage * utils.LINEAR_RECALCULATION_ON_PERC_CHANGE / 100 / 10  # for more precision, since the changes are small in this case
+        if utils.CVL_RECALCULATION_EVERY <= current_time - self.linear_cvl_last_set or (
+            diff
+            >= self.control_voltage
+            * utils.CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE
+            / 100
+            / 10  # for more precision, since the changes are small in this case
         ):
             self.control_voltage = control_voltage
             self.linear_cvl_last_set = current_time
@@ -1013,15 +1017,15 @@ class Battery(ABC):
 
         """
         do not set CCL immediately, but only
-        - after LINEAR_RECALCULATION_EVERY passed
+        - after CVL_RECALCULATION_EVERY passed
         - if CCL changes to 0
-        - if CCL changes more than LINEAR_RECALCULATION_ON_PERC_CHANGE
+        - if CCL changes more than CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE
         """
         ccl = round(min(charge_limits), 3)
         diff = abs(self.control_charge_current - ccl) if self.control_charge_current is not None else 0
         if (
-            int(time()) - self.linear_ccl_last_set >= utils.LINEAR_RECALCULATION_EVERY
-            or (diff >= self.control_charge_current * utils.LINEAR_RECALCULATION_ON_PERC_CHANGE / 100)
+            int(time()) - self.linear_ccl_last_set >= utils.CVL_RECALCULATION_EVERY
+            or (diff >= self.control_charge_current * utils.CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE / 100)
             or (ccl == 0 and self.control_charge_current != 0)
         ):
             self.linear_ccl_last_set = int(time())
@@ -1099,15 +1103,15 @@ class Battery(ABC):
 
         """
         do not set DCL immediately, but only
-        - after LINEAR_RECALCULATION_EVERY passed
+        - after CVL_RECALCULATION_EVERY passed
         - if DCL changes to 0
-        - if DCL changes more than LINEAR_RECALCULATION_ON_PERC_CHANGE
+        - if DCL changes more than CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE
         """
         dcl = round(min(discharge_limits), 3)
         diff = abs(self.control_discharge_current - dcl) if self.control_discharge_current is not None else 0
         if (
-            int(time()) - self.linear_dcl_last_set >= utils.LINEAR_RECALCULATION_EVERY
-            or (diff >= self.control_discharge_current * utils.LINEAR_RECALCULATION_ON_PERC_CHANGE / 100)
+            int(time()) - self.linear_dcl_last_set >= utils.CVL_RECALCULATION_EVERY
+            or (diff >= self.control_discharge_current * utils.CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE / 100)
             or (dcl == 0 and self.control_discharge_current != 0)
         ):
             self.linear_dcl_last_set = int(time())

@@ -15,6 +15,8 @@
 
 * Driver version greater or equal to `v2.0.20250107dev`
   * Changes to `config.default.ini`: `LINEAR_LIMITATION_ENABLE` was superseeded by `CHARGE_MODE`, which has a different behavior
+  * Changes to `config.default.ini`: `LINEAR_RECALCULATION_EVERY` was replaced by `CVL_RECALCULATION_EVERY`
+  * Changes to `config.default.ini`: `LINEAR_RECALCULATION_ON_PERC_CHANGE` was replaced by `CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE`
 
 * Driver version greater or equal to `v2.0.20250103dev`
   * Changes to `config.default.ini`: `SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT` was replaced by `SWITCH_TO_BULK_SOC_THRESHOLD`
@@ -70,6 +72,8 @@
 * Changed: The setting `EXTERNAL_CURRENT_SENSOR_DBUS_DEVICE` was replaced by `EXTERNAL_SENSOR_DBUS_DEVICE` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `EXTERNAL_CURRENT_SENSOR_DBUS_PATH` was replaced by `EXTERNAL_SENSOR_DBUS_PATH_CURRENT` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `LINEAR_LIMITATION_ENABLE` was superseeded by `CHARGE_MODE`, which has a different behavior by @mr-manuel
+* Changed: The setting `LINEAR_RECALCULATION_EVERY` was replaced by `CVL_RECALCULATION_EVERY` by @mr-manuel
+* Changed: The setting `LINEAR_RECALCULATION_ON_PERC_CHANGE` was replaced by `CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE` by @mr-manuel
 * Changed: The setting `MODBUS_ADDRESSES` was replaced by `BATTERY_ADDRESSES` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `SEPLOS_USE_BMS_VALUES` was replaced by `USE_BMS_DVCC_VALUES` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `SOC_CALC_CURRENT_MEASURED_BY_USER` was replaced by `CURRENT_MEASURED_BY_USER` in the `config.default.ini` by @mr-manuel

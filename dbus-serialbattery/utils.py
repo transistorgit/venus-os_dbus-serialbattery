@@ -248,8 +248,8 @@ check_config_issue(
 
 # --------- Charge mode ---------
 CHARGE_MODE: int = get_int_from_config("DEFAULT", "CHARGE_MODE")
-LINEAR_RECALCULATION_EVERY: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_EVERY")
-LINEAR_RECALCULATION_ON_PERC_CHANGE: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_ON_PERC_CHANGE")
+CVL_RECALCULATION_EVERY: int = get_int_from_config("DEFAULT", "CVL_RECALCULATION_EVERY")
+CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE: int = get_int_from_config("DEFAULT", "CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE")
 
 
 # --------- Charge Voltage Limitation (affecting CVL) ---------
