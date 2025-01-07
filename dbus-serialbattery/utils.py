@@ -14,7 +14,7 @@ import serial
 
 
 # CONSTANTS
-DRIVER_VERSION: str = "2.0.20250103dev"
+DRIVER_VERSION: str = "2.0.20250107dev"
 """
 current version of the driver
 """
@@ -233,12 +233,6 @@ if not BLOCK_ON_DISCONNECT:
         BLOCK_ON_DISCONNECT = True
 
 
-# --------- Charge mode ---------
-LINEAR_LIMITATION_ENABLE: bool = get_bool_from_config("DEFAULT", "LINEAR_LIMITATION_ENABLE")
-LINEAR_RECALCULATION_EVERY: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_EVERY")
-LINEAR_RECALCULATION_ON_PERC_CHANGE: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_ON_PERC_CHANGE")
-
-
 # --------- External Sensor for Current and/or SoC ---------
 EXTERNAL_SENSOR_DBUS_DEVICE: Union[str, None] = config["DEFAULT"]["EXTERNAL_SENSOR_DBUS_DEVICE"] or None
 EXTERNAL_SENSOR_DBUS_PATH_CURRENT: Union[str, None] = config["DEFAULT"]["EXTERNAL_SENSOR_DBUS_PATH_CURRENT"] or None
@@ -252,6 +246,12 @@ check_config_issue(
 )
 
 
+# --------- Charge mode ---------
+LINEAR_LIMITATION_ENABLE: bool = get_bool_from_config("DEFAULT", "LINEAR_LIMITATION_ENABLE")
+LINEAR_RECALCULATION_EVERY: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_EVERY")
+LINEAR_RECALCULATION_ON_PERC_CHANGE: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_ON_PERC_CHANGE")
+
+
 # --------- Charge Voltage Limitation (affecting CVL) ---------
 CVCM_ENABLE: bool = get_bool_from_config("DEFAULT", "CVCM_ENABLE")
 """
@@ -259,11 +259,11 @@ Charge voltage control management
 
 Limits max charging voltage (CVL). Switch from max to float voltage and back.
 """
+MAX_VOLTAGE_TIME_SEC: int = get_int_from_config("DEFAULT", "MAX_VOLTAGE_TIME_SEC")
+SWITCH_TO_BULK_SOC_THRESHOLD: int = get_int_from_config("DEFAULT", "SWITCH_TO_BULK_SOC_THRESHOLD")
 CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL")
 CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART")
 CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT")
-MAX_VOLTAGE_TIME_SEC: int = get_int_from_config("DEFAULT", "MAX_VOLTAGE_TIME_SEC")
-SWITCH_TO_BULK_SOC_THRESHOLD: int = get_int_from_config("DEFAULT", "SWITCH_TO_BULK_SOC_THRESHOLD")
 
 
 # --------- Cell Voltage Limitation (affecting CVL) ---------
