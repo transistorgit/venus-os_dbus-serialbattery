@@ -247,7 +247,7 @@ check_config_issue(
 
 
 # --------- Charge mode ---------
-LINEAR_LIMITATION_ENABLE: bool = get_bool_from_config("DEFAULT", "LINEAR_LIMITATION_ENABLE")
+CHARGE_MODE: int = get_int_from_config("DEFAULT", "CHARGE_MODE")
 LINEAR_RECALCULATION_EVERY: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_EVERY")
 LINEAR_RECALCULATION_ON_PERC_CHANGE: int = get_int_from_config("DEFAULT", "LINEAR_RECALCULATION_ON_PERC_CHANGE")
 

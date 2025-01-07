@@ -850,10 +850,10 @@ class Battery(ABC):
 
                 self.charge_mode = charge_mode
 
-            if utils.CHARGE_MODE == 1:
-                self.charge_mode += " (Linear Mode)"
-            else:
+            if utils.CHARGE_MODE == 2:
                 self.charge_mode += " (Step Mode)"
+            else:
+                self.charge_mode += " (Linear Mode)"
 
             # debug information
             if utils.GUI_PARAMETERS_SHOW_ADDITIONAL_INFO or logger.isEnabledFor(logging.DEBUG):
@@ -1145,18 +1145,19 @@ class Battery(ABC):
             return self.max_battery_charge_current
 
         try:
-            if utils.LINEAR_LIMITATION_ENABLE:
+            if utils.CHARGE_MODE == 2:
+                return utils.calc_step_relationship(
+                    self.get_max_cell_voltage(),
+                    utils.CELL_VOLTAGES_WHILE_CHARGING,
+                    utils.MAX_CHARGE_CURRENT_CV,
+                    False,
+                )
+            else:
                 return utils.calc_linear_relationship(
                     self.get_max_cell_voltage(),
                     utils.CELL_VOLTAGES_WHILE_CHARGING,
                     utils.MAX_CHARGE_CURRENT_CV,
                 )
-            return utils.calc_step_relationship(
-                self.get_max_cell_voltage(),
-                utils.CELL_VOLTAGES_WHILE_CHARGING,
-                utils.MAX_CHARGE_CURRENT_CV,
-                False,
-            )
         except Exception:
             # set error code, to show in the GUI that something is wrong
             self.manage_error_code(8)
@@ -1193,18 +1194,19 @@ class Battery(ABC):
             return self.max_battery_discharge_current
 
         try:
-            if utils.LINEAR_LIMITATION_ENABLE:
+            if utils.CHARGE_MODE == 2:
+                return utils.calc_step_relationship(
+                    self.get_min_cell_voltage(),
+                    utils.CELL_VOLTAGES_WHILE_DISCHARGING,
+                    utils.MAX_DISCHARGE_CURRENT_CV,
+                    True,
+                )
+            else:
                 return utils.calc_linear_relationship(
                     self.get_min_cell_voltage(),
                     utils.CELL_VOLTAGES_WHILE_DISCHARGING,
                     utils.MAX_DISCHARGE_CURRENT_CV,
                 )
-            return utils.calc_step_relationship(
-                self.get_min_cell_voltage(),
-                utils.CELL_VOLTAGES_WHILE_DISCHARGING,
-                utils.MAX_DISCHARGE_CURRENT_CV,
-                True,
-            )
         except Exception:
             # set error code, to show in the GUI that something is wrong
             self.manage_error_code(8)
@@ -1241,18 +1243,18 @@ class Battery(ABC):
 
         try:
             for key, currentMaxTemperature in temperatures.items():
-                if utils.LINEAR_LIMITATION_ENABLE:
-                    temperatures[key] = utils.calc_linear_relationship(
-                        currentMaxTemperature,
-                        utils.TEMPERATURES_WHILE_CHARGING,
-                        utils.MAX_CHARGE_CURRENT_T,
-                    )
-                else:
+                if utils.CHARGE_MODE == 2:
                     temperatures[key] = utils.calc_step_relationship(
                         currentMaxTemperature,
                         utils.TEMPERATURES_WHILE_CHARGING,
                         utils.MAX_CHARGE_CURRENT_T,
                         False,
+                    )
+                else:
+                    temperatures[key] = utils.calc_linear_relationship(
+                        currentMaxTemperature,
+                        utils.TEMPERATURES_WHILE_CHARGING,
+                        utils.MAX_CHARGE_CURRENT_T,
                     )
             return min(temperatures[0], temperatures[1])
         except Exception:
@@ -1291,18 +1293,18 @@ class Battery(ABC):
 
         try:
             for key, currentMaxTemperature in temperatures.items():
-                if utils.LINEAR_LIMITATION_ENABLE:
-                    temperatures[key] = utils.calc_linear_relationship(
-                        currentMaxTemperature,
-                        utils.TEMPERATURES_WHILE_DISCHARGING,
-                        utils.MAX_DISCHARGE_CURRENT_T,
-                    )
-                else:
+                if utils.CHARGE_MODE == 2:
                     temperatures[key] = utils.calc_step_relationship(
                         currentMaxTemperature,
                         utils.TEMPERATURES_WHILE_DISCHARGING,
                         utils.MAX_DISCHARGE_CURRENT_T,
                         True,
+                    )
+                else:
+                    temperatures[key] = utils.calc_linear_relationship(
+                        currentMaxTemperature,
+                        utils.TEMPERATURES_WHILE_DISCHARGING,
+                        utils.MAX_DISCHARGE_CURRENT_T,
                     )
             return min(temperatures[0], temperatures[1])
         except Exception:
@@ -1329,18 +1331,19 @@ class Battery(ABC):
         :return: The maximum charge current
         """
         try:
-            if utils.LINEAR_LIMITATION_ENABLE:
+            if utils.CHARGE_MODE == 2:
+                return utils.calc_step_relationship(
+                    self.soc_calc,
+                    utils.SOC_WHILE_CHARGING,
+                    utils.MAX_CHARGE_CURRENT_SOC,
+                    True,
+                )
+            else:
                 return utils.calc_linear_relationship(
                     self.soc_calc,
                     utils.SOC_WHILE_CHARGING,
                     utils.MAX_CHARGE_CURRENT_SOC,
                 )
-            return utils.calc_step_relationship(
-                self.soc_calc,
-                utils.SOC_WHILE_CHARGING,
-                utils.MAX_CHARGE_CURRENT_SOC,
-                True,
-            )
         except Exception:
             # set error code, to show in the GUI that something is wrong
             self.manage_error_code(8)
@@ -1365,18 +1368,19 @@ class Battery(ABC):
         :return: The maximum discharge current
         """
         try:
-            if utils.LINEAR_LIMITATION_ENABLE:
+            if utils.CHARGE_MODE == 2:
+                return utils.calc_step_relationship(
+                    self.soc_calc,
+                    utils.SOC_WHILE_DISCHARGING,
+                    utils.MAX_DISCHARGE_CURRENT_SOC,
+                    True,
+                )
+            else:
                 return utils.calc_linear_relationship(
                     self.soc_calc,
                     utils.SOC_WHILE_DISCHARGING,
                     utils.MAX_DISCHARGE_CURRENT_SOC,
                 )
-            return utils.calc_step_relationship(
-                self.soc_calc,
-                utils.SOC_WHILE_DISCHARGING,
-                utils.MAX_DISCHARGE_CURRENT_SOC,
-                True,
-            )
         except Exception:
             # set error code, to show in the GUI that something is wrong
             self.manage_error_code(8)
@@ -1961,7 +1965,7 @@ class Battery(ABC):
             + (f" | SoC calc: {self.soc_calc:.0f}%" if utils.SOC_CALCULATION else "")
         )
         logger.info(f"> Cell count: {self.cell_count} | Cells populated: {cell_counter}")
-        logger.info(f"> LINEAR LIMITATION ENABLE: {utils.LINEAR_LIMITATION_ENABLE}")
+        logger.info(f'> CHARGE MODE: {"Linear" if utils.CHARGE_MODE == 1 else "Step" if utils.CHARGE_MODE == 2 else "Unknown"}')
         logger.info(
             f"> MIN CELL VOLTAGE: {utils.MIN_CELL_VOLTAGE:.3f} V "
             + f"| MAX CELL VOLTAGE: {utils.MAX_CELL_VOLTAGE:.3f} V"
