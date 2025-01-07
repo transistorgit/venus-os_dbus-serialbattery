@@ -132,16 +132,20 @@ def update_module(name, repo_url, extract):
     # Path to the extracted folder
     extracted_folder = f"{temp_dir}/{first_folder}{extract}"
 
-    # move content from {temp_dir}/{repo_name}-{tag_name}{extract} to {directory_name}
-    print(f'|- Move content from "{extracted_folder}" to "{directory_name}"')
+    # Check if the extracted folder exists
+    if not os.path.exists(extracted_folder):
+        raise Exception(f"WARNING: Extracted folder '{extracted_folder}' not found.")
+    else:
+        # move content from {temp_dir}/{repo_name}-{tag_name}{extract} to {directory_name}
+        print(f'|- Move content from "{extracted_folder}" to "{directory_name}"')
 
-    # Move the contents of the extracted folder to the target directory
-    for item in os.listdir(extracted_folder):
-        s = os.path.join(extracted_folder, item)
-        d = os.path.join(directory_name, item)
-        shutil.move(s, d)
+        # Move the contents of the extracted folder to the target directory
+        for item in os.listdir(extracted_folder):
+            s = os.path.join(extracted_folder, item)
+            d = os.path.join(directory_name, item)
+            shutil.move(s, d)
 
-    print(f'|- Tarball "{tag_name}.tar.gz" from "{tarball_url}" downloaded and saved in "{directory_name}".')
+        print(f'|- Tarball "{tag_name}.tar.gz" from "{tarball_url}" downloaded and saved in "{directory_name}".')
     print()
 
 
