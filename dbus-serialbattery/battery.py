@@ -693,19 +693,21 @@ class Battery(ABC):
             if self.max_voltage_start_time is None:
                 # start timer, if max voltage is reached and cells are balanced
                 if (
-                    (self.max_battery_voltage - utils.VOLTAGE_DROP) <= voltage_sum
-                    and voltage_cell_diff <= utils.CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL
-                    and self.allow_max_voltage
+                    self.allow_max_voltage
+                    # Check if battery is fully charged
+                    and (self.max_battery_voltage - utils.VOLTAGE_DROP) <= voltage_sum
+                    # Check if cells are balanced
+                    and voltage_cell_diff <= utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF
                 ):
                     self.max_voltage_start_time = current_time
 
-                # allow max voltage again, if:
+                # allow max voltage again, if one of the following is true:
                 # - SoC threshold is reached
                 # - Cells are unbalanced
                 # - SoC reset was requested
                 elif (
                     utils.SWITCH_TO_BULK_SOC_THRESHOLD > self.soc_calc
-                    or voltage_cell_diff >= utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT
+                    or voltage_cell_diff >= utils.SWITCH_TO_BULK_CELL_VOLTAGE_DIFF
                     or self.soc_reset_requested
                 ) and not self.allow_max_voltage:
                     self.allow_max_voltage = True
@@ -716,12 +718,12 @@ class Battery(ABC):
 
             # timer started
             else:
-                if voltage_cell_diff > utils.CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART:
+                if voltage_cell_diff > (utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF + utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DEVIATION):
                     self.max_voltage_start_time = current_time
 
                 time_diff = current_time - self.max_voltage_start_time
-                # keep max voltage for MAX_VOLTAGE_TIME_SEC more seconds
-                if utils.MAX_VOLTAGE_TIME_SEC < time_diff:
+                # keep max voltage for SWITCH_TO_FLOAT_WAIT_FOR_SEC more seconds
+                if utils.SWITCH_TO_FLOAT_WAIT_FOR_SEC < time_diff:
                     self.allow_max_voltage = False
                     self.max_voltage_start_time = None
 
@@ -742,7 +744,7 @@ class Battery(ABC):
                 if voltage_sum < self.max_battery_voltage - measurement_tolerance_variation:
                     self.max_voltage_start_time = None
 
-            # Bulk or Absorption mode
+            # Bulk or absorption mode
             if self.allow_max_voltage:
 
                 # use I-Controller
@@ -756,7 +758,7 @@ class Battery(ABC):
                                 (
                                     self.get_max_cell_voltage()
                                     - (utils.SOC_RESET_VOLTAGE if self.soc_reset_requested else utils.MAX_CELL_VOLTAGE)
-                                    - utils.CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL
+                                    - utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF
                                 )
                                 * utils.CVL_ICONTROLLER_FACTOR
                             ),
@@ -797,7 +799,7 @@ class Battery(ABC):
                 if self.max_battery_voltage == self.soc_reset_battery_voltage:
                     self.charge_mode += " & SoC Reset"
 
-                if self.get_balancing() and voltage_cell_diff >= utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT:
+                if self.get_balancing() and voltage_cell_diff >= utils.SWITCH_TO_BULK_CELL_VOLTAGE_DIFF:
                     self.charge_mode += " + Balancing"
 
             # Float mode
@@ -900,12 +902,12 @@ class Battery(ABC):
                     + f"{voltage_sum:.2f} :voltage_sum\n"
                     + "AND\n"
                     + f"voltage_cell_diff: {voltage_cell_diff:.3f} <= "
-                    + f"{utils.CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL:.3f} "
-                    + ":CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL\n"
+                    + f"{utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF:.3f} "
+                    + ":SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF\n"
                     + "AND\n"
                     + f"allow_max_voltage: {self.allow_max_voltage} == True\n"
                     + "AND\n"
-                    + f"MAX_VOLTAGE_TIME_SEC: {utils.MAX_VOLTAGE_TIME_SEC} < {time_diff} :time_diff"
+                    + f"SWITCH_TO_FLOAT_WAIT_FOR_SEC: {utils.SWITCH_TO_FLOAT_WAIT_FOR_SEC} < {time_diff} :time_diff"
                 )
 
                 self.charge_mode_debug_bulk = (
@@ -914,8 +916,8 @@ class Battery(ABC):
                     + f"{utils.SWITCH_TO_BULK_SOC_THRESHOLD} > {self.soc_calc} :soc_calc\n"
                     + "OR\n"
                     + f"b) voltage_cell_diff: {voltage_cell_diff:.3f} >= "
-                    + f"{utils.CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT:.3f} "
-                    + ":CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT\n"
+                    + f"{utils.SWITCH_TO_BULK_CELL_VOLTAGE_DIFF:.3f} "
+                    + ":SWITCH_TO_BULK_CELL_VOLTAGE_DIFF\n"
                     + "AND\n"
                     + f"allow_max_voltage: {self.allow_max_voltage} == False"
                 )

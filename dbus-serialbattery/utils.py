@@ -71,7 +71,7 @@ def get_bool_from_config(group: str, option: str) -> bool:
     return config[group].get(option, "False").lower() == "true"
 
 
-def get_float_from_config(group: str, option: str) -> float:
+def get_float_from_config(group: str, option: str, default_value: float = 0) -> float:
     """
     Get a float value from the config file.
 
@@ -79,10 +79,10 @@ def get_float_from_config(group: str, option: str) -> float:
     :param option: Option in the config file
     :return: Float value
     """
-    return float(config[group][option])
+    return float(config[group].get(option, default_value))
 
 
-def get_int_from_config(group: str, option: str) -> int:
+def get_int_from_config(group: str, option: str, default_value: int = 0) -> int:
     """
     Get an integer value from the config file.
 
@@ -90,7 +90,7 @@ def get_int_from_config(group: str, option: str) -> int:
     :param option: Option in the config file
     :return: Integer value
     """
-    return int(config[group][option])
+    return int(config[group].get(option, default_value))
 
 
 def get_list_from_config(group: str, option: str, mapper: Callable[[Any], Any] = lambda v: v) -> List[Any]:
@@ -103,7 +103,7 @@ def get_list_from_config(group: str, option: str, mapper: Callable[[Any], Any] =
     :return: List of values
     """
     try:
-        raw_list = config[group][option].split(",")
+        raw_list = config[group].get(option).split(",")
         return [mapper(item.strip()) for item in raw_list if item.strip()]
     except KeyError:
         logger.error(f"Missing config option '{option}' in group '{group}'")
@@ -259,11 +259,22 @@ Charge voltage control management
 
 Limits max charging voltage (CVL). Switch from max to float voltage and back.
 """
-MAX_VOLTAGE_TIME_SEC: int = get_int_from_config("DEFAULT", "MAX_VOLTAGE_TIME_SEC")
-SWITCH_TO_BULK_SOC_THRESHOLD: int = get_int_from_config("DEFAULT", "SWITCH_TO_BULK_SOC_THRESHOLD")
-CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL")
-CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART")
-CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT: float = get_float_from_config("DEFAULT", "CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT")
+SWITCH_TO_FLOAT_WAIT_FOR_SEC: int = get_int_from_config("DEFAULT", "SWITCH_TO_FLOAT_WAIT_FOR_SEC", 0)
+SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF: float = get_float_from_config("DEFAULT", "SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF", 10)
+SWITCH_TO_FLOAT_CELL_VOLTAGE_DEVIATION: float = get_float_from_config("DEFAULT", "SWITCH_TO_FLOAT_CELL_VOLTAGE_DEVIATION", 0)
+
+SWITCH_TO_BULK_SOC_THRESHOLD: int = get_int_from_config("DEFAULT", "SWITCH_TO_BULK_SOC_THRESHOLD", 0)
+SWITCH_TO_BULK_CELL_VOLTAGE_DIFF: float = get_float_from_config("DEFAULT", "SWITCH_TO_BULK_CELL_VOLTAGE_DIFF", 10)
+
+
+# Common configuration checks
+if SWITCH_TO_BULK_SOC_THRESHOLD <= 0 and SWITCH_TO_BULK_CELL_VOLTAGE_DIFF >= 0.101:
+    logger.warning(
+        "Your current configuration very likely prevents the switch from FLOAT to BULK."
+        f"SWITCH_TO_BULK_SOC_THRESHOLD is set to {SWITCH_TO_BULK_SOC_THRESHOLD} and "
+        f"SWITCH_TO_BULK_CELL_VOLTAGE_DIFF is set to {SWITCH_TO_BULK_CELL_VOLTAGE_DIFF}."
+    )
+    logger.warning("Please check the configuration and adjust the values accordingly.")
 
 
 # --------- Cell Voltage Limitation (affecting CVL) ---------
