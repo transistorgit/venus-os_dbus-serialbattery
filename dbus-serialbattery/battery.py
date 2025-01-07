@@ -661,33 +661,12 @@ class Battery(ABC):
 
         :return: None
         """
-        found_high_cell_voltage = False
-        voltage_sum = 0
-        penalty_sum = 0
         time_diff = 0
         control_voltage = 0
         current_time = int(time())
 
-        # meassurment and variation tolerance in volts
-        measurement_tolerance_variation = 0.5
-
         try:
-            # calculate voltage sum and check for cell overvoltage
-            for i in range(self.cell_count):
-                voltage = self.get_cell_voltage(i)
-                if voltage:
-                    voltage_sum += voltage
-
-                    # calculate penalty sum to prevent single cell overcharge by using current cell voltage
-                    if self.max_battery_voltage != self.soc_reset_battery_voltage and voltage > utils.MAX_CELL_VOLTAGE:
-                        # found_high_cell_voltage: reset to False is not needed, since it is recalculated every second
-                        found_high_cell_voltage = True
-                        penalty_sum += voltage - utils.MAX_CELL_VOLTAGE
-                    elif self.max_battery_voltage == self.soc_reset_battery_voltage and voltage > utils.SOC_RESET_VOLTAGE:
-                        # found_high_cell_voltage: reset to False is not needed, since it is recalculated every second
-                        found_high_cell_voltage = True
-                        penalty_sum += voltage - utils.SOC_RESET_VOLTAGE
-
+            voltage_sum = self.get_cell_voltage_sum()
             voltage_cell_diff = self.get_max_cell_voltage() - self.get_min_cell_voltage()
 
             if self.max_voltage_start_time is None:
@@ -739,30 +718,52 @@ class Battery(ABC):
                             + ' "config.ini".'
                         )
 
-                # we don't forget to reset max_voltage_start_time wenn we going to bulk(dynamic) mode
-                # regardless of whether we were in absorption mode or not
+                # meassurment and variation tolerance in volts, to prevent switching back and forth
+                measurement_tolerance_variation = 0.5
+
+                # Reset max_voltage_start_time when switching to bulk mode, regardless of the previous mode
                 if voltage_sum < self.max_battery_voltage - measurement_tolerance_variation:
                     self.max_voltage_start_time = None
 
             # Bulk or absorption mode
             if self.allow_max_voltage:
 
-                # use I-Controller
-                if utils.CVL_ICONTROLLER_MODE:
-                    if self.control_voltage:
-                        # 6 decimals are needed for a proper I-controller working
-                        # https://github.com/Louisvdw/dbus-serialbattery/issues/1041
-                        control_voltage = round(
-                            self.control_voltage
-                            - (
-                                (
-                                    self.get_max_cell_voltage()
-                                    - (utils.SOC_RESET_VOLTAGE if self.soc_reset_requested else utils.MAX_CELL_VOLTAGE)
-                                    - utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF
-                                )
-                                * utils.CVL_ICONTROLLER_FACTOR
+                # Get maximum allowed cell voltage
+                cell_voltage_max_allowed = utils.SOC_RESET_VOLTAGE if self.soc_reset_requested else utils.MAX_CELL_VOLTAGE
+
+                # use P-Controller
+                if utils.CVL_CONTROLLER_MODE == 1:
+                    penalty_sum = 0
+                    found_high_cell_voltage = False
+
+                    # check for cell overvoltage
+                    if self.get_max_cell_voltage() > cell_voltage_max_allowed:
+                        for i in range(self.cell_count):
+                            voltage = self.get_cell_voltage(i)
+                            if voltage:
+                                # calculate penalty sum to prevent single cell overcharge by using current cell voltage
+                                if voltage > cell_voltage_max_allowed:
+                                    found_high_cell_voltage = True
+                                    penalty_sum += voltage - cell_voltage_max_allowed
+
+                    if found_high_cell_voltage:
+                        # reduce voltage by penalty sum
+                        # keep penalty above min battery voltage and below max battery voltage
+                        control_voltage = min(
+                            max(
+                                voltage_sum - penalty_sum,
+                                self.min_battery_voltage,
                             ),
-                            6,
+                            self.max_battery_voltage,
+                        )
+                    else:
+                        control_voltage = self.max_battery_voltage
+
+                # use I-Controller
+                elif utils.CVL_CONTROLLER_MODE == 2:
+                    if self.control_voltage:
+                        control_voltage = self.control_voltage - (
+                            (self.get_max_cell_voltage() - cell_voltage_max_allowed - utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF) * utils.CVL_ICONTROLLER_FACTOR
                         )
                     else:
                         control_voltage = self.max_battery_voltage
@@ -772,29 +773,20 @@ class Battery(ABC):
                         self.max_battery_voltage,
                     )
 
-                # use P-Controller
+                # use no controller
                 else:
-                    if found_high_cell_voltage:
-                        # reduce voltage by penalty sum
-                        # keep penalty above min battery voltage and below max battery voltage
-                        control_voltage = round(
-                            min(
-                                max(
-                                    voltage_sum - penalty_sum,
-                                    self.min_battery_voltage,
-                                ),
-                                self.max_battery_voltage,
-                            ),
-                            6,
-                        )
-                    else:
-                        control_voltage = self.max_battery_voltage
+                    control_voltage = self.max_battery_voltage
 
-                self.control_voltage = control_voltage
+                # set control voltage
+                # 6 decimals are needed for a proper controller working
+                # https://github.com/Louisvdw/dbus-serialbattery/issues/1041
+                self.control_voltage = round(control_voltage, 6)
 
                 self.charge_mode = "Bulk" if self.max_voltage_start_time is None else "Absorption"
-                if found_high_cell_voltage:
-                    self.charge_mode += " Dynamic"
+
+                # If control voltage is not equal to max battery voltage, then a high cell voltage was detected
+                if control_voltage != self.max_battery_voltage:
+                    self.charge_mode += " (Cell OVP)"  # Cell over voltage protection
 
                 if self.max_battery_voltage == self.soc_reset_battery_voltage:
                     self.charge_mode += " & SoC Reset"
@@ -853,9 +845,9 @@ class Battery(ABC):
                 self.charge_mode = charge_mode
 
             if utils.CHARGE_MODE == 2:
-                self.charge_mode += " (Step Mode)"
+                self.charge_mode += ", Step Mode"
             else:
-                self.charge_mode += " (Linear Mode)"
+                self.charge_mode += ", Linear Mode"
 
             # debug information
             if utils.GUI_PARAMETERS_SHOW_ADDITIONAL_INFO or logger.isEnabledFor(logging.DEBUG):
@@ -874,7 +866,9 @@ class Battery(ABC):
                     + f"VOLTAGE_DROP: {utils.VOLTAGE_DROP:.2f} V\n"
                     + f"voltage_sum: {voltage_sum:.2f} V • "
                     + f"voltage_cell_diff: {voltage_cell_diff:.3f} V\n"
-                    + f"max_cell_voltage: {self.get_max_cell_voltage()} V • penalty_sum: {penalty_sum:.3f} V\n"
+                    + f"max_cell_voltage: {self.get_max_cell_voltage()} V"
+                    + (f" • penalty_sum: {penalty_sum:.3f} V" if utils.CVL_CONTROLLER_MODE == 1 else "")
+                    + "\n"
                     + f"soc: {self.soc}% • soc_calc: {self.soc_calc}%\n"
                     + f"current: {self.current:.2f}A"
                     + (f" • current_calc: {self.current_calc:.2f} A\n" if self.current_calc is not None else "\n")

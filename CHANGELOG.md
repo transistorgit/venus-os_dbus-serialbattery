@@ -17,6 +17,7 @@
   * Changes to `config.default.ini`: `CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART` was superseeded by `SWITCH_TO_FLOAT_CELL_VOLTAGE_DEVIATION`, which has a different behavior
   * Changes to `config.default.ini`: `CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL` was replaced by `SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF`
   * Changes to `config.default.ini`: `CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT` was replaced by `SWITCH_TO_BULK_CELL_VOLTAGE_DIFF`
+  * Changes to `config.default.ini`: `CVL_ICONTROLLER_MODE` was superseeded by `CVL_CONTROLLER_MODE`, which has a different behavior
   * Changes to `config.default.ini`: `LINEAR_LIMITATION_ENABLE` was superseeded by `CHARGE_MODE`, which has a different behavior
   * Changes to `config.default.ini`: `LINEAR_RECALCULATION_EVERY` was replaced by `CVL_RECALCULATION_EVERY`
   * Changes to `config.default.ini`: `LINEAR_RECALCULATION_ON_PERC_CHANGE` was replaced by `CVL_RECALCULATION_ON_MAX_PERCENTAGE_CHANGE`
@@ -76,6 +77,7 @@
 * Changed: The setting `CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART` was superseeded by `SWITCH_TO_FLOAT_CELL_VOLTAGE_DEVIATION`, which has a different behavior by @mr-manuel
 * Changed: The setting `CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL` was replaced by `SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF` by @mr-manuel
 * Changed: The setting `CELL_VOLTAGE_DIFF_TO_RESET_VOLTAGE_LIMIT` was replaced by `SWITCH_TO_BULK_CELL_VOLTAGE_DIFF` by @mr-manuel
+* Changed: The setting `CVL_ICONTROLLER_MODE` was superseeded by `CVL_CONTROLLER_MODE`, which has a different behavior by @mr-manuel
 * Changed: The setting `EXTERNAL_CURRENT_SENSOR_DBUS_DEVICE` was replaced by `EXTERNAL_SENSOR_DBUS_DEVICE` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `EXTERNAL_CURRENT_SENSOR_DBUS_PATH` was replaced by `EXTERNAL_SENSOR_DBUS_PATH_CURRENT` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `LINEAR_LIMITATION_ENABLE` was superseeded by `CHARGE_MODE`, which has a different behavior by @mr-manuel
