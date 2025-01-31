@@ -112,6 +112,24 @@ if [ -d "$pathGuiV1" ]; then
         versionStringToNumber $(head -n 1 /opt/victronenergy/version)
         ((venusVersionNumber = $versionNumber))
 
+        # QtQick version changed with this Venus OS version
+        versionStringToNumber "v3.60~18"
+
+        # change files in the destination folder, else the files are "broken" if upgrading to a the newer Venus OS version
+        qmlDir="$pathGuiV1/qml"
+
+        if (( $venusVersionNumber < $versionNumber )); then
+            echo "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.60~18. Fixing QtQuick version... "
+            fileList="$qmlDir/PageBattery.qml"
+            fileList+=" $qmlDir/PageBatteryCellVoltages.qml"
+            fileList+=" $qmlDir/PageBatteryParameters.qml"
+            fileList+=" $qmlDir/PageBatterySettings.qml"
+            fileList+=" $qmlDir/PageLynxIonIo.qml"
+            for file in $fileList ; do
+                sed -i -e 's/QtQuick 2/QtQuick 1.1/' "$file"
+            done
+        fi
+
         # Some class names changed with this Venus OS version
         versionStringToNumber "v3.00~14"
 
@@ -119,7 +137,7 @@ if [ -d "$pathGuiV1" ]; then
         qmlDir="$pathGuiV1/qml"
 
         if (( $venusVersionNumber < $versionNumber )); then
-            echo -n "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.00~14. Fixing class names... "
+            echo "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.00~14. Fixing class names... "
             fileList="$qmlDir/PageBattery.qml"
             fileList+=" $qmlDir/PageBatteryCellVoltages.qml"
             fileList+=" $qmlDir/PageBatteryParameters.qml"
@@ -204,7 +222,7 @@ if [ -d "$pathGuiV2" ]; then
         qmlDir="$pathGuiV2/Victron/VenusOS/pages/settings/devicelist/battery"
 
         if (( $venusVersionNumber < $versionNumber )); then
-            echo -n "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.60~8. Fixing class names... "
+            echo "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.60~8. Fixing class names... "
             fileList="$qmlDir/PageBattery.qml"
             fileList+=" $qmlDir/PageBatteryCellVoltages.qml"
             fileList+=" $qmlDir/PageBatteryParameters.qml"
@@ -227,7 +245,7 @@ if [ -d "$pathGuiV2" ]; then
         qmlDir="$pathGuiV2/Victron/VenusOS/pages/settings/devicelist/battery"
 
         if (( $venusVersionNumber < $versionNumber )); then
-            echo -n "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.60~18. Fixing property names... "
+            echo "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.60~18. Fixing property names... "
             fileList="$qmlDir/PageBattery.qml"
             fileList+=" $qmlDir/PageBatteryCellVoltages.qml"
             fileList+=" $qmlDir/PageBatteryParameters.qml"
@@ -237,7 +255,7 @@ if [ -d "$pathGuiV2" ]; then
                 sed -i -e 's/preferredVisible:/allowed: defaultAllowed \&\&/' "$file"
             done
 
-            echo -n "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.60~18. Fixing battery object... "
+            echo "Venus OS $(head -n 1 /opt/victronenergy/version) is older than v3.60~18. Fixing battery object... "
             sed -i -e 's/required property string bindPrefix/property string bindPrefix: battery.serviceUid/' "$qmlDir/PageBattery.qml"
             sed -i -e '/Device {/{N;N;N;s/Device {\n\t\tid: battery\n\t\tserviceUid: root.bindPrefix\n\t}/property var battery/}' "$qmlDir/PageBattery.qml"
         fi
