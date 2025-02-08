@@ -13,6 +13,9 @@
 
 ### Breaking Changes
 
+* Driver version greater or equal to `v2.0.20250207dev`
+  * Changes to `config.default.ini`: `TEMPERATURE_SOURCE_BATTERY` is now a list of temperature sensors, so you can choose which sensors you want to use
+
 * Driver version greater or equal to `v2.0.20250107dev`
   * Changes to `config.default.ini`: `CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART` was superseeded by `SWITCH_TO_FLOAT_CELL_VOLTAGE_DEVIATION`, which has a different behavior
   * Changes to `config.default.ini`: `CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_UNTIL` was replaced by `SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF`
@@ -94,10 +97,18 @@
 * Changed: The setting `TEMP_3_NAME` was replaced by `TEMPERATURE_3_NAME` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `TEMP_4_NAME` was replaced by `TEMPERATURE_4_NAME` in the `config.default.ini` by @mr-manuel
 * Changed: The setting `TEMP_BATTERY` was replaced by `TEMPERATURE_SOURCE_BATTERY` in the `config.default.ini` by @mr-manuel
+* Changed: The setting `TEMPERATURE_SOURCE_BATTERY` is now a list of temperature sensors, so you can choose which sensors you want to use by @mr-manuel
 * Changed: Use corrected current for both normal current and SOC calculation if `SOC_CALCULATION` is enabled by @mr-manuel
 * Changed: When `SOC_CALCULATION` is enabled, the SoC is reset to 100%, if the battery switches to float. Old options were removed by @mr-manuel
 * Removed: The setting `SOC_RESET_CURRENT` was removed in the `config.default.ini` by @mr-manuel
 * Removed: The setting `SOC_RESET_TIME` was removed in the `config.default.ini` by @mr-manuel
+
+
+## v1.6.20250131
+
+### What's Changed
+
+* Changed: GUIv2 changes by @mr-manuel
 
 
 ## v1.6.20250123

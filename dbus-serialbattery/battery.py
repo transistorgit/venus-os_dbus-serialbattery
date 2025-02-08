@@ -1655,15 +1655,18 @@ class Battery(ABC):
     def get_temperature(self) -> Union[float, None]:
         try:
             temperature_map = {1: self.temperature_1, 2: self.temperature_2, 3: self.temperature_3, 4: self.temperature_4}
-            temperature = temperature_map.get(utils.TEMPERATURE_SOURCE_BATTERY)
-            if temperature is not None:
-                return temperature
 
+            # Calculate the average temperature from the sensors given in the list
+            temperatures = [temperature_map.get(sensor) for sensor in utils.TEMPERATURE_SOURCE_BATTERY if temperature_map.get(sensor) is not None]
+            if temperatures:
+                return round(sum(temperatures) / len(temperatures), 1)
+
+            # Calculate the average temperature from all sensors
             temperatures = [t for t in [self.temperature_1, self.temperature_2, self.temperature_3, self.temperature_4] if t is not None]
-            if not temperatures:
-                return None
+            if temperatures:
+                return round(sum(temperatures) / len(temperatures), 1)
 
-            return round(sum(temperatures) / len(temperatures), 1)
+            return None
 
         except TypeError:
             return None
