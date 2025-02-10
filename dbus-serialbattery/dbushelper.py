@@ -568,6 +568,7 @@ class DbusHelper:
         if utils.SOC_CALCULATION or utils.EXTERNAL_SENSOR_DBUS_PATH_SOC is not None:
             self._dbusservice.add_path("/SocBms", None, writeable=True)
 
+        self._dbusservice.add_path("/Soh", None, writeable=True)
         self._dbusservice.add_path(
             "/Dc/0/Voltage",
             None,
@@ -899,6 +900,7 @@ class DbusHelper:
             self._dbusservice["/SocBms"] = round(self.battery.soc, 2) if self.battery.soc is not None else None
         else:
             self._dbusservice["/Soc"] = round(self.battery.soc_calc, 2) if self.battery.soc is not None else None
+        self._dbusservice["/Soh"] = round(self.battery.soh, 2) if self.battery.soh is not None else None
         self._dbusservice["/Dc/0/Voltage"] = round(self.battery.voltage, 2) if self.battery.voltage is not None else None
         self._dbusservice["/Dc/0/Current"] = round(self.battery.current_calc, 2) if self.battery.current_calc is not None else None
         self._dbusservice["/Dc/0/Power"] = round(self.battery.power_calc, 2) if self.battery.power_calc is not None else None

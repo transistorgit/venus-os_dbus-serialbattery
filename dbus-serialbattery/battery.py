@@ -329,6 +329,7 @@ class Battery(ABC):
         self.protection = Protection()
         self.history = History()
         self.version = None
+        self.soh: float = None  # state of health
         self.time_to_soc_update: int = 0
         self.temperature_1: float = None
         self.temperature_2: float = None
