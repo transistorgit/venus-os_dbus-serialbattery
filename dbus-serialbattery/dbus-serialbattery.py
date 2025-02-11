@@ -319,6 +319,10 @@ def main():
                 # noqa: F401 --> ignore flake "imported but unused" error
                 from bms.jkbms_ble import Jkbms_Ble  # noqa: F401
 
+            if port == "Kilovault_Ble":
+                # noqa: F401 --> ignore flake "imported but unused" error
+                from bms.kilovault_ble import Kilovault_Ble  # noqa: F401
+
             if port == "LltJbd_Ble":
                 # noqa: F401 --> ignore flake "imported but unused" error
                 from bms.lltjbd_ble import LltJbd_Ble  # noqa: F401
