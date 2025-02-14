@@ -15,6 +15,7 @@ class Syncron_Ble:
     response_event = False
     response_data = False
     main_thread = False
+    connected = False
 
     write_characteristic = None
     read_characteristic = None
@@ -42,6 +43,8 @@ class Syncron_Ble:
             logger.error("bluetooh LE thread took to long to start")
         if not connected_ok:
             logger.error(f"bluetooh LE connection to address: {self.address} took to long to inititate")
+        else:
+            self.connected = True
 
     def initiate_ble_thread_main(self):
         asyncio.run(self.async_main(self.address))
