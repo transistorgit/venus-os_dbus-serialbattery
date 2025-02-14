@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+
+# NOTES
+# Added by https://github.com/alexphredorg
+# https://github.com/mr-manuel/venus-os_dbus-serialbattery/pull/183
+
 from battery import Battery, Cell
 import struct
 import binascii
