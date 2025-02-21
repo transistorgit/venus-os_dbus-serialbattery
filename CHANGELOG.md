@@ -76,6 +76,10 @@
 * Changed: JKBMS CAN - Per default only address 0 is recognized. Change `BATTERY_ADDRESS` to match your device address by @Hooorny and @mr-manuel
 * Changed: Licensing from MIT license to GNU AGPLv3 license by @mr-manuel
 * Changed: Refactored driver installation via USB/SD card by @mr-manuel
+* Changed: Renamed `install-qml.sh` to `custom-gui-install.sh` by @mr-manuel
+* Changed: Renamed `reinstall-local.sh` to `enable.sh` by @mr-manuel
+* Changed: Renamed `restart-driver.sh` to `restart.sh` by @mr-manuel
+* Changed: Renamed `restore-gui.sh` to `custom-gui-uninstall.sh` by @mr-manuel
 * Changed: The driver is now running directly from it's app folder. No need to copy the `config.ini` file anywhere, which means changes are applied by simply restarting the service by @mr-manuel
 * Changed: The root filesystem is not mounted as read-write anymore, since overlay filesystems are used now. This allows to let the core system files untouched and to revert all changes with one command. The changes are now also persistant and do not have to be installed on every Venus OS update again by @mr-manuel
 * Changed: The setting `CELL_VOLTAGE_DIFF_KEEP_MAX_VOLTAGE_TIME_RESTART` was superseeded by `SWITCH_TO_FLOAT_CELL_VOLTAGE_DEVIATION`, which has a different behavior by @mr-manuel
