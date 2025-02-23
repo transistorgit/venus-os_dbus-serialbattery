@@ -79,7 +79,14 @@ def get_float_from_config(group: str, option: str, default_value: float = 0) -> 
     :param option: Option in the config file
     :return: Float value
     """
-    return float(config[group].get(option, default_value))
+    value = config[group].get(option, default_value)
+    if value == "":
+        return default_value
+    try:
+        return float(value)
+    except ValueError:
+        errors_in_config.append(f"**CONFIG ISSUE**: Invalid value '{value}' for option '{option}' in group '{group}'.")
+        return default_value
 
 
 def get_int_from_config(group: str, option: str, default_value: int = 0) -> int:
@@ -90,7 +97,14 @@ def get_int_from_config(group: str, option: str, default_value: int = 0) -> int:
     :param option: Option in the config file
     :return: Integer value
     """
-    return int(config[group].get(option, default_value))
+    value = config[group].get(option, default_value)
+    if value == "":
+        return default_value
+    try:
+        return int(value)
+    except ValueError:
+        errors_in_config.append(f"**CONFIG ISSUE**: Invalid value '{value}' for option '{option}' in group '{group}'.")
+        return default_value
 
 
 def get_list_from_config(group: str, option: str, mapper: Callable[[Any], Any] = lambda v: v) -> List[Any]:
@@ -107,7 +121,10 @@ def get_list_from_config(group: str, option: str, mapper: Callable[[Any], Any] =
         return [mapper(item.strip()) for item in raw_list if item.strip()]
     except KeyError:
         logger.error(f"Missing config option '{option}' in group '{group}'")
-        errors_in_config.append(f"Missing config option '{option}' in group '{group}'")
+        errors_in_config.append(f"**CONFIG ISSUE**: Missing config option '{option}' in group '{group}'")
+        return []
+    except ValueError:
+        errors_in_config.append(f"**CONFIG ISSUE**: Invalid value '{mapper}' for option '{option}' in group '{group}'.")
         return []
 
 
