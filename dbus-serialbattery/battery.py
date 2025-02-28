@@ -675,7 +675,8 @@ class Battery(ABC):
                 if (
                     self.allow_max_voltage
                     # Check if battery is fully charged
-                    and (self.max_battery_voltage - utils.VOLTAGE_DROP) <= voltage_sum
+                    # voltage drop can be ignored, since the voltage drop is added to CVL
+                    and self.max_battery_voltage <= voltage_sum
                     # Check if cells are balanced
                     and voltage_cell_diff <= utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF
                 ):
@@ -862,9 +863,9 @@ class Battery(ABC):
                 self.charge_mode_debug = (
                     f"driver started: {formatted_time} • running since: {self.get_seconds_to_string(int(time()) - self.driver_start_time)}\n"
                     + f"max_battery_voltage: {(self.max_battery_voltage):.2f} V • "
-                    + f"control_voltage: {self.control_voltage:.2f} V\n"
-                    + f"voltage: {self.voltage:.2f} V • "
-                    + f"VOLTAGE_DROP: {utils.VOLTAGE_DROP:.2f} V\n"
+                    + f"voltage: {self.voltage:.2f} V\n"
+                    + f"control_voltage: {self.control_voltage:.2f} V + "
+                    + f"{utils.VOLTAGE_DROP:.2f} V (VOLTAGE_DROP) = {(self.control_voltage + utils.VOLTAGE_DROP):.2f} V\n"
                     + f"voltage_sum: {voltage_sum:.2f} V • "
                     + f"voltage_cell_diff: {voltage_cell_diff:.3f} V\n"
                     + f"max_cell_voltage: {self.get_max_cell_voltage()} V"
@@ -893,7 +894,7 @@ class Battery(ABC):
 
                 self.charge_mode_debug_float = (
                     "-- switch to float requirements (Linear Mode) --\n"
-                    + f"max_battery_voltage: {(self.max_battery_voltage - utils.VOLTAGE_DROP):.2f} <= "
+                    + f"max_battery_voltage: {self.max_battery_voltage:.2f} <= "
                     + f"{voltage_sum:.2f} :voltage_sum\n"
                     + "AND\n"
                     + f"voltage_cell_diff: {voltage_cell_diff:.3f} <= "

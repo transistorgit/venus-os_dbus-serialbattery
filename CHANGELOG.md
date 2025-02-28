@@ -71,6 +71,7 @@
 * Changed: Driver was moved from `/data/etc/dbus-serialbattery` to `/data/apps/dbus-serialbattery` by @mr-manuel
 * Changed: EG4 LifePower - Fixed wrong cell voltage decoding. Fixes https://github.com/mr-manuel/venus-os_dbus-serialbattery/issues/155 by @dchiquito
 * Changed: Fix `/Info/BatteryLowVoltage` remaining `None` https://github.com/mr-manuel/venus-os_dbus-serialbattery/issues/145 by @mr-manuel
+* Changed: Fix double manipulation by `VOLTAGE_DROP` by @mr-manuel
 * Changed: Fix missing charge/discharge fet status for EG4 LifePower, EG4 LL and Renogy. Fixes https://github.com/mr-manuel/venus-os_dbus-serialbattery/issues/129 by @mr-manuel
 * Changed: Fixed issue, when calculated SOC is restored from dbus and BMS SOC is 0 by @mr-manuel
 * Changed: Improved driver and `config.default.ini` descriptions by @mr-manuel
