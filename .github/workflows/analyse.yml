@@ -39,10 +39,7 @@ jobs:
       uses: github/codeql-action/analyze@v3
 
     - name: Perform black lint check
-      # uses: psf/black@stable
-      # Version should be the same as
-      # https://marketplace.visualstudio.com/items?itemName=ms-python.black-formatter
-      uses: psf/black@24.8.0
+      uses: psf/black@stable
 
     - name: Perform flake8 lint check
       uses: py-actions/flake8@v2

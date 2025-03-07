@@ -50,7 +50,7 @@ class Daly(Battery):
     # command bytes [StartFlag=A5][Address=40][Command=94][DataLength=8][8x fill bytes][checksum]
     # use 0xAA (or 0x55) as fill bytes to allow the daly's "weak" uart to sync better
     # this reduces read errors dramatically
-    command_base = b"\xA5\x40\x94\x08\xAA\xAA\xAA\xAA\xAA\xAA\xAA\xAA\x00"
+    command_base = b"\xa5\x40\x94\x08\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00"
     command_set_soc = b"\x21"
     command_rated_params = b"\x50"
     command_batt_details = b"\x53"
@@ -64,8 +64,8 @@ class Daly(Battery):
     command_temperature = b"\x96"
     command_cell_balance = b"\x97"  # no reply
     command_alarm = b"\x98"  # no reply
-    command_disable_discharge_mos = b"\xD9"
-    command_disable_charge_mos = b"\xDA"
+    command_disable_discharge_mos = b"\xd9"
+    command_disable_charge_mos = b"\xda"
 
     BATTERYTYPE = "Daly"
     LENGTH_CHECK = 1
@@ -709,12 +709,12 @@ class Daly(Battery):
         """
         time_start = time()
 
-        reply = ser.read_until(b"\xA5")
-        if not reply or b"\xA5" not in reply:
+        reply = ser.read_until(b"\xa5")
+        if not reply or b"\xa5" not in reply:
             logger.debug(f"read_sentence {bytearray_to_string(expected_reply)}: no sentence start received")
             return False
 
-        idx = reply.index(b"\xA5")
+        idx = reply.index(b"\xa5")
         reply = reply[idx:]
         toread = ser.inWaiting()
         while toread < 12:

@@ -568,7 +568,7 @@ class Daren485(Battery):
         Example command (mark the \r at the end):
         ~22014A47E00201FD23␍
         """
-        return self.create_command(self.address, b"\x4A", b"\x47", self.address.hex().upper())
+        return self.create_command(self.address, b"\x4a", b"\x47", self.address.hex().upper())
 
     def create_command_get_mfg_params(self):
         """
@@ -583,7 +583,7 @@ class Daren485(Battery):
         commandinfo += "03"
         commandinfo += "FF"  # functionid
         commandinfo += "00"  # functionLEN
-        return self.create_command(self.address, b"\x4A", b"\xB0", commandinfo)
+        return self.create_command(self.address, b"\x4a", b"\xb0", commandinfo)
 
     def create_command_get_cap_params(self):
         """
@@ -598,7 +598,7 @@ class Daren485(Battery):
         commandinfo += "04"
         commandinfo += "FF"  # functionid
         commandinfo += "00"  # functionLEN
-        return self.create_command(self.address, b"\x4A", b"\xB0", commandinfo)
+        return self.create_command(self.address, b"\x4a", b"\xb0", commandinfo)
 
     def create_command_get_realtime_data(self):
         """
@@ -606,7 +606,7 @@ class Daren485(Battery):
         Example command (mark the \r at the end):
         ~22014A42E00201FD28␍
         """
-        return self.create_command(self.address, b"\x4A", b"\x42", self.address.hex().upper())
+        return self.create_command(self.address, b"\x4a", b"\x42", self.address.hex().upper())
 
     def create_command_get_manufacturer_info(self):
         """
@@ -614,7 +614,7 @@ class Daren485(Battery):
         Example command (mark the \r at the end):
         ~22014A510000FDA0␍
         """
-        return self.create_command(self.address, b"\x4A", b"\x51")
+        return self.create_command(self.address, b"\x4a", b"\x51")
 
     def create_command(self, addr, cid1, cid2, info=""):
         command = ""

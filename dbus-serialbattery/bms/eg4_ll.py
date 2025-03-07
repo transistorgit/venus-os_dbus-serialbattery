@@ -55,11 +55,11 @@ class EG4_LL(Battery):
         self.trigger_force_disable_discharge = None
         self.trigger_force_disable_charge = None
         # self.command_get_version = b"\x01\x03\x00\x69\x00\x23\xD4\x0F"  # Pulled from PC Client
-        self.command_get_version = address + b"\x03\x00\x69\x00\x23\xD4\x0F"
+        self.command_get_version = address + b"\x03\x00\x69\x00\x23\xd4\x0f"
         # self.command_get_stats = b"\x01\x03\x00\x00\x00\x27\x05\xD0"  # Pulled from PC Client
-        self.command_get_stats = address + b"\x03\x00\x00\x00\x27\x05\xD0"
+        self.command_get_stats = address + b"\x03\x00\x00\x00\x27\x05\xd0"
         # self.command_get_config = b"\x01\x03\x00\x2D\x00\x5B\x94\x38"  # Pulled from PC Client
-        self.command_get_config = address + b"\x03\x00\x2D\x00\x5B\x94\x38"
+        self.command_get_config = address + b"\x03\x00\x2d\x00\x5b\x94\x38"
         self.history.exclude_values_to_calculate = ["charge_cycles"]
 
     # Modbus uses 7C call vs Lifepower 7E, as return values do not correlate to the Lifepower ones if 7E is used.
