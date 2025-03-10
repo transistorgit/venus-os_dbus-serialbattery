@@ -161,7 +161,7 @@ class LiTime_Ble(Battery):
         temperature_mos = mosfet_temp
         self.to_temperature(0, temperature_mos)
 
-        self.capacity_remaining = remaining_amph
+        self.capacity_remain = remaining_amph
         self.history.total_ah_drawn = discharges_amph_count
         self.history.full_discharges = discharges_count
 

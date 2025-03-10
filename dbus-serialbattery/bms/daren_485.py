@@ -191,7 +191,7 @@ class Daren485(Battery):
             # Payload starts at offset 13(packet header) + 12 (command_info)
             payload = response[(13 + 12) : len(response) - 5]
             if len(payload) >= 36:  # 9*4 bytes in full request.
-                self.capacity_remaining = int(int(payload[0:4], base=16) / 100)
+                self.capacity_remain = int(int(payload[0:4], base=16) / 100)
                 self.capacity = int(int(payload[4:8], base=16) / 100)
                 # design_capacity = int(payload[8:12], base=16) / 100 #Not used, for future use.
                 # total_charge_capacity = int(payload[12:20], base=16) / 100 #Not used, for future use.
@@ -244,7 +244,7 @@ class Daren485(Battery):
                 temperature_4 = unpack(">h", bytes.fromhex(payload[102:106]))[0] / 10
                 self.to_temperature(4, temperature_4)
                 self.capacity = int(payload[120:124], base=16) / 100
-                self.capacity_remaining = int(payload[124:128], base=16) / 100
+                self.capacity_remain = int(payload[124:128], base=16) / 100
                 self.history.charge_cycles = int(payload[128:132], base=16)
                 fetstatus = int(payload[148:152], base=16)
 
