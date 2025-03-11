@@ -77,10 +77,10 @@ if [ -z "$1" ]; then
     echo -n "Fetch available version numbers..."
 
     # mr-manuel stable
-    latest_release_mrmanuel_stable=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d "\ " | tr -d \" | tr -d \,)
+    latest_release_mrmanuel_stable=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases/latest | sed -nE 's/.*"tag_name": "([^"]+)".*/\1/p')
 
     # mr-manuel beta
-    latest_release_mrmanuel_beta=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases | grep "tag_name.*beta" | cut -d : -f 2,3 | tr -d "\ " | tr -d \" | tr -d \, | head -n 1)
+    latest_release_mrmanuel_beta=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases | sed -nE 's/.*"tag_name": "([^"]+)".*/\1/p' | head -n 1)
 
     # mr-manuel master branch
     latest_release_mrmanuel_nightly=$(curl -s https://raw.githubusercontent.com/mr-manuel/venus-os_dbus-serialbattery/master/dbus-serialbattery/utils.py | grep DRIVER_VERSION | awk -F'"' '{print "v" $2}')
@@ -194,13 +194,13 @@ fi
 ## stable release (mr-manuel, most up to date)
 if [ "$version" = "stable" ]; then
     # download stable release
-    curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases/latest | grep "browser_download_url.*gz" | cut -d : -f 2,3 | tr -d \" | wget -O /tmp/venus-data.tar.gz -qi -
+    curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases/latest | sed -nE 's/.*"browser_download_url": "([^"]+)".*/\1/p' | wget -O /tmp/venus-data.tar.gz -qi -
 fi
 
 ## beta release (mr-manuel, most up to date)
 if [ "$version" = "beta" ]; then
     # download beta release
-    curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases/tags/$latest_release_mrmanuel_beta | grep "browser_download_url.*gz" | cut -d : -f 2,3 | tr -d \" | wget -O /tmp/venus-data.tar.gz -qi -
+    curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/releases/tags/$latest_release_mrmanuel_beta | sed -nE 's/.*"browser_download_url": "([^"]+)".*/\1/p' | wget -O /tmp/venus-data.tar.gz -qi -
 fi
 
 ## specific version
@@ -304,7 +304,7 @@ if [ "$version" = "nightly" ] || [ "$version" = "specific_branch" ]; then
     if [ "$version" = "specific_branch" ]; then
 
         # fetch branches from Github
-        branches=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/branches | grep "name" | cut -d : -f 2,3 | tr -d \" | tr -d \,)
+        branches=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_dbus-serialbattery/branches | sed -nE 's/.*"name": "([^"]+)".*/\1/p')
 
         # create a select menu
         echo
