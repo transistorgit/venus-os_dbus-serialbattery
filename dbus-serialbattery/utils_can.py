@@ -12,7 +12,6 @@ class CanTransportInterface:
     """
 
     can_message_cache_callback: callable = None
-    can_message_cache_clear_old_entries: callable = None
     can_bus = None
 
 
@@ -32,9 +31,11 @@ class CanReceiverThread(threading.Thread):
         super().__init__(name=f"CanReceiverThread-{channel}")
         self.channel = channel
         self.bustype = bustype
+        self._current_time = int(time())
         self.message_cache = {}  # cache can frames here
         self.cache_lock = threading.Lock()  # lock for thread safety
-        self.last_received_time = {}  # track last received time for each arbitration ID
+        self._last_received_time = {}  # track last received time for each arbitration ID
+        self._last_cache_clean_time = 0  # last time the cached was cleaned (deleted too old values)
         CanReceiverThread._instances[(channel, bustype)] = self
         self.daemon = True
         self._running = True  # flag to control the running state
@@ -78,13 +79,17 @@ class CanReceiverThread(threading.Thread):
         self.can_initialised.set()
 
         while self._running:
+            self._current_time = int(time())
+
             link_status = self.get_link_status()
+            self.clear_old_cache_entries()
+
             if link_status:
                 try:
                     message = self.can_bus.recv(timeout=1.0)  # wait for max 1 second to receive message
 
                     if message is not None:
-                        last_message_time_stamp = int(time())
+                        last_message_time_stamp = self._current_time
                         with self.cache_lock:
 
                             # daly hack: cell voltage messages are sent with same id, so use frame id additionally as offset for cmd byte
@@ -95,46 +100,48 @@ class CanReceiverThread(threading.Thread):
 
                             # cache data with arbitration id as key
                             self.message_cache[message.arbitration_id] = message.data
-                            self.last_received_time[message.arbitration_id] = int(time())  # update last received time
+                            self._last_received_time[message.arbitration_id] = last_message_time_stamp  # update last received time
 
                         logger.debug(f"[{self.channel}] Received: ID={hex(message.arbitration_id)}, Daten={message.data}")
 
                 except can.exceptions.CanOperationError as e:
                     logger.debug(f"CAN Bus {self.channel}: {e}")
                     self.message_cache = {}
-                    self.last_received_time = {}
+                    self._last_received_time = {}
                     sleep(1)
             else:
                 logger.error(">>> ERROR: CAN Bus interface is down")
                 self.message_cache = {}
-                self.last_received_time = {}
+                self._last_received_time = {}
                 sleep(1)
 
-            if int(time()) - last_message_time_stamp > 2 and self.message_cache:
+            if self._current_time - last_message_time_stamp > 2 and self.message_cache:
                 logger.debug(f"CAN Bus {self.channel} has not received any messages in the last 2 seconds")
                 self.message_cache = {}
-                self.last_received_time = {}
+                self._last_received_time = {}
                 sleep(2)
 
         self.stop()
 
-    # Clear cache entries for defined arbitration IDs if they have not been received for 10 seconds.
-    def clear_old_cache_entries(self, arb_id_list: list = []) -> None:
+    # Clear cache entries for defined arbitration IDs if they have not been received for 5 seconds.
+    def clear_old_cache_entries(self) -> None:
         """
-        Clear cache entries for defined arbitration IDs if they have not been received for 10 seconds.
+        Clear cache entries for defined arbitration IDs if they have not been received for 5 seconds.
 
-        :param arb_id_list: list of arbitration IDs to clear cache for
         :return: None
         """
-        if not arb_id_list:
+        # do this once a second to reduce load
+        if self._last_cache_clean_time + 1 > self._current_time:
             return
 
-        current_time = time()
+        # update time
+        self._last_cache_clean_time = self._current_time
+
         with self.cache_lock:
-            for arb_id in list(self.message_cache.keys()):
-                if arb_id in arb_id_list and (current_time - self.last_received_time.get(arb_id, 0) > 10):
+            for arb_id in list(self._last_received_time.keys()):
+                if self._current_time - self._last_received_time[arb_id] > 5:
                     del self.message_cache[arb_id]
-                    del self.last_received_time[arb_id]
+                    del self._last_received_time[arb_id]
                     logger.debug(f"[{self.channel}] Cleared cache for arbitration ID {hex(arb_id)} due to timeout")
 
     def stop(self) -> None:
@@ -174,16 +181,15 @@ class CanReceiverThread(threading.Thread):
         :return: True if interface is up, False otherwise
         """
 
-        current_time = time()
         # Check if cached result is still valid
-        if self._link_status_cache["timestamp"] + 1 > current_time:
+        if self._link_status_cache["timestamp"] + 1 > self._current_time:
             return self._link_status_cache["result"]
 
         result = subprocess.run(["ip", "link", "show", self.channel], capture_output=True, text=True, check=True)
         status = "UP" in result.stdout
 
         # Update the cache
-        self._link_status_cache["timestamp"] = current_time
+        self._link_status_cache["timestamp"] = self._current_time
         self._link_status_cache["result"] = status
 
         return status
