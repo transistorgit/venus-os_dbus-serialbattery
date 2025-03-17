@@ -74,6 +74,8 @@
 * Changed: Fix double manipulation by `VOLTAGE_DROP` by @mr-manuel
 * Changed: Fix missing charge/discharge fet status for EG4 LifePower, EG4 LL and Renogy. Fixes https://github.com/mr-manuel/venus-os_dbus-serialbattery/issues/129 by @mr-manuel
 * Changed: Fixed issue, when calculated SOC is restored from dbus and BMS SOC is 0 by @mr-manuel
+* Changed: Fixed Seplos V3 cell balance status with https://github.com/mr-manuel/venus-os_dbus-serialbattery/pull/213 by @marcelrv
+* Changed: Fixed serial port handling with https://github.com/mr-manuel/venus-os_dbus-serialbattery/pull/211 by @WaldemarFech
 * Changed: Improved driver and `config.default.ini` descriptions by @mr-manuel
 * Changed: JKBMS CAN - Per default only address 0 is recognized. Change `BATTERY_ADDRESS` to match your device address by @Hooorny and @mr-manuel
 * Changed: Licensing from MIT license to GNU AGPLv3 license by @mr-manuel
