@@ -373,6 +373,37 @@ check_config_issue(
     "there is no value set to 1. This means that the battery will never use the maximum discharge current. Please check the configuration.",
 )
 
+# --------- MOSFET Temperature Current Limitation (affecting CCL/DCL) ---------
+CCCM_T_MOSFET_ENABLE: bool = get_bool_from_config("DEFAULT", "CCCM_T_MOSFET_ENABLE")
+"""
+Charge current control management referring to MOSFET temperature
+"""
+DCCM_T_MOSFET_ENABLE: bool = get_bool_from_config("DEFAULT", "DCCM_T_MOSFET_ENABLE")
+"""
+Discharge current control management referring to MOSFET temperature
+"""
+MOSFET_TEMPERATURES_WHILE_CHARGING: List[float] = get_list_from_config("DEFAULT", "MOSFET_TEMPERATURES_WHILE_CHARGING", float)
+MAX_CHARGE_CURRENT_T_MOSFET: List[float] = get_list_from_config(
+    "DEFAULT", "MAX_CHARGE_CURRENT_T_MOSFET_FRACTION", lambda v: MAX_BATTERY_CHARGE_CURRENT * float(v)
+)
+
+check_config_issue(
+    MAX_BATTERY_CHARGE_CURRENT not in MAX_CHARGE_CURRENT_T_MOSFET,
+    f"In MAX_CHARGE_CURRENT_T_MOSFET_FRACTION ({', '.join(map(str, get_list_from_config('DEFAULT', 'MAX_CHARGE_CURRENT_T_MOSFET_FRACTION', float)))}) "
+    "there is no value set to 1. This means that the battery will never use the maximum charge current. Please check the configuration.",
+)
+
+MOSFET_TEMPERATURES_WHILE_DISCHARGING: List[float] = get_list_from_config("DEFAULT", "MOSFET_TEMPERATURES_WHILE_DISCHARGING", float)
+MAX_DISCHARGE_CURRENT_T_MOSFET: List[float] = get_list_from_config(
+    "DEFAULT", "MAX_DISCHARGE_CURRENT_T_MOSFET_FRACTION", lambda v: MAX_BATTERY_DISCHARGE_CURRENT * float(v)
+)
+
+check_config_issue(
+    MAX_BATTERY_DISCHARGE_CURRENT not in MAX_DISCHARGE_CURRENT_T_MOSFET,
+    f"In MAX_DISCHARGE_CURRENT_T_MOSFET_FRACTION ({', '.join(map(str, get_list_from_config('DEFAULT', 'MAX_DISCHARGE_CURRENT_T_MOSFET_FRACTION', float)))}) "
+    "there is no value set to 1. This means that the battery will never use the maximum discharge current. Please check the configuration.",
+)
+
 # --------- SoC Limitation (affecting CCL/DCL) ---------
 CCCM_SOC_ENABLE: bool = get_bool_from_config("DEFAULT", "CCCM_SOC_ENABLE")
 """

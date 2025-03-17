@@ -52,6 +52,7 @@
 
 ### What's Changed
 * Added: Calculation of history values not provided by the battery by @mr-manuel
+* Added: Charge/Discharge current limitation by MOSFET temperature by @mr-manuel
 * Added: Error handling for `config.ini` by @mr-manuel
 * Added: Felicity BMS by @versager
 * Added: JKBMS CAN - Extended protocol with version V2 by @Hooorny and @mr-manuel
@@ -111,7 +112,6 @@
 * Changed: When `SOC_CALCULATION` is enabled, the SoC is reset to 100%, if the battery switches to float. Old options were removed by @mr-manuel
 * Removed: The setting `SOC_RESET_CURRENT` was removed in the `config.default.ini` by @mr-manuel
 * Removed: The setting `SOC_RESET_TIME` was removed in the `config.default.ini` by @mr-manuel
-
 
 ## v1.6.20250131
 

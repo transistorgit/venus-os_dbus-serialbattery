@@ -994,6 +994,18 @@ class Battery(ABC):
                 else:
                     charge_limits.update({tmp: "Temp"})
 
+        if utils.CCCM_T_MOSFET_ENABLE:
+            tmp = self.calc_max_charge_current_from_mosfet_temperature()
+            if self.max_battery_charge_current != tmp:
+                if tmp in charge_limits:
+                    # do not add string, if global limitation is applied
+                    if charge_limits[tmp] != "Max Battery Charge Current":
+                        charge_limits.update({tmp: charge_limits[tmp] + ", MOSFET"})
+                    else:
+                        pass
+                else:
+                    charge_limits.update({tmp: "MOSFET"})
+
         if utils.CCCM_SOC_ENABLE:
             tmp = self.calc_max_charge_current_from_soc()
             if self.max_battery_charge_current != tmp:
@@ -1079,6 +1091,18 @@ class Battery(ABC):
                         pass
                 else:
                     discharge_limits.update({tmp: "Temp"})
+
+        if utils.DCCM_T_MOSFET_ENABLE:
+            tmp = self.calc_max_discharge_current_from_mosfet_temperature()
+            if self.max_battery_discharge_current != tmp:
+                if tmp in discharge_limits:
+                    # do not add string, if global limitation is applied
+                    if discharge_limits[tmp] != "Max Battery Discharge Current":
+                        discharge_limits.update({tmp: discharge_limits[tmp] + ", MOSFET"})
+                    else:
+                        pass
+                else:
+                    discharge_limits.update({tmp: "MOSFET"})
 
         if utils.DCCM_SOC_ENABLE:
             tmp = self.calc_max_discharge_current_from_soc()
@@ -1242,23 +1266,28 @@ class Battery(ABC):
             return self.max_battery_charge_current
 
         temperatures = {0: self.get_max_temperature(), 1: self.get_min_temperature()}
+        currents = []
 
         try:
             for key, currentMaxTemperature in temperatures.items():
                 if utils.CHARGE_MODE == 2:
-                    temperatures[key] = utils.calc_step_relationship(
-                        currentMaxTemperature,
-                        utils.TEMPERATURES_WHILE_CHARGING,
-                        utils.MAX_CHARGE_CURRENT_T,
-                        False,
+                    currents.append(
+                        utils.calc_step_relationship(
+                            currentMaxTemperature,
+                            utils.TEMPERATURES_WHILE_CHARGING,
+                            utils.MAX_CHARGE_CURRENT_T,
+                            False,
+                        )
                     )
                 else:
-                    temperatures[key] = utils.calc_linear_relationship(
-                        currentMaxTemperature,
-                        utils.TEMPERATURES_WHILE_CHARGING,
-                        utils.MAX_CHARGE_CURRENT_T,
+                    currents.append(
+                        utils.calc_linear_relationship(
+                            currentMaxTemperature,
+                            utils.TEMPERATURES_WHILE_CHARGING,
+                            utils.MAX_CHARGE_CURRENT_T,
+                        )
                     )
-            return min(temperatures[0], temperatures[1])
+            return min(currents)
         except Exception:
             # set error code, to show in the GUI that something is wrong
             self.manage_error_code(8)
@@ -1292,23 +1321,28 @@ class Battery(ABC):
             return self.max_battery_discharge_current
 
         temperatures = {0: self.get_max_temperature(), 1: self.get_min_temperature()}
+        currents = []
 
         try:
             for key, currentMaxTemperature in temperatures.items():
                 if utils.CHARGE_MODE == 2:
-                    temperatures[key] = utils.calc_step_relationship(
-                        currentMaxTemperature,
-                        utils.TEMPERATURES_WHILE_DISCHARGING,
-                        utils.MAX_DISCHARGE_CURRENT_T,
-                        True,
+                    currents.append(
+                        utils.calc_step_relationship(
+                            currentMaxTemperature,
+                            utils.TEMPERATURES_WHILE_DISCHARGING,
+                            utils.MAX_DISCHARGE_CURRENT_T,
+                            True,
+                        )
                     )
                 else:
-                    temperatures[key] = utils.calc_linear_relationship(
-                        currentMaxTemperature,
-                        utils.TEMPERATURES_WHILE_DISCHARGING,
-                        utils.MAX_DISCHARGE_CURRENT_T,
+                    currents.append(
+                        utils.calc_linear_relationship(
+                            currentMaxTemperature,
+                            utils.TEMPERATURES_WHILE_DISCHARGING,
+                            utils.MAX_DISCHARGE_CURRENT_T,
+                        )
                     )
-            return min(temperatures[0], temperatures[1])
+            return min(currents)
         except Exception:
             # set error code, to show in the GUI that something is wrong
             self.manage_error_code(8)
@@ -1318,6 +1352,86 @@ class Battery(ABC):
                 f"temperatures: {temperatures}"
                 + f" • TEMPERATURES_WHILE_DISCHARGING: {utils.TEMPERATURES_WHILE_DISCHARGING}"
                 + f" • MAX_DISCHARGE_CURRENT_T: {utils.MAX_DISCHARGE_CURRENT_T}"
+            )
+
+            exception_type, exception_object, exception_traceback = sys.exc_info()
+            file = exception_traceback.tb_frame.f_code.co_filename
+            line = exception_traceback.tb_lineno
+            logger.error("Non blocking exception occurred: " + f"{repr(exception_object)} of type {exception_type} in {file} line #{line}")
+            return self.max_battery_charge_current
+
+    def calc_max_charge_current_from_mosfet_temperature(self) -> float:
+        """
+        Calculate the maximum charge current referring to the MOSFET temperature.
+
+        :return: The maximum charge current
+        """
+        if self.temperature_mos is None:
+            return self.max_battery_charge_current
+
+        try:
+            if utils.CHARGE_MODE == 2:
+                return utils.calc_step_relationship(
+                    self.temperature_mos,
+                    utils.MOSFET_TEMPERATURES_WHILE_CHARGING,
+                    utils.MAX_CHARGE_CURRENT_T_MOSFET,
+                    False,
+                )
+            else:
+                return utils.calc_linear_relationship(
+                    self.temperature_mos,
+                    utils.MOSFET_TEMPERATURES_WHILE_CHARGING,
+                    utils.MAX_CHARGE_CURRENT_T_MOSFET,
+                )
+        except Exception:
+            # set error code, to show in the GUI that something is wrong
+            self.manage_error_code(8)
+
+            logger.error("calc_max_charge_current_from_mosfet_temperature(): Error while executing," + " using default current instead.")
+            logger.error(
+                f"temperature_mos: {self.temperature_mos}"
+                + f" • MOSFET_TEMPERATURES_WHILE_CHARGING: {utils.MOSFET_TEMPERATURES_WHILE_CHARGING}"
+                + f" • MAX_CHARGE_CURRENT_T_MOSFET: {utils.MAX_CHARGE_CURRENT_T_MOSFET}"
+            )
+
+            exception_type, exception_object, exception_traceback = sys.exc_info()
+            file = exception_traceback.tb_frame.f_code.co_filename
+            line = exception_traceback.tb_lineno
+            logger.error("Non blocking exception occurred: " + f"{repr(exception_object)} of type {exception_type} in {file} line #{line}")
+            return self.max_battery_charge_current
+
+    def calc_max_discharge_current_from_mosfet_temperature(self) -> float:
+        """
+        Calculate the maximum discharge current referring to the MOSFET temperature.
+
+        :return: The maximum discharge current
+        """
+        if self.temperature_mos is None:
+            return self.max_battery_charge_current
+
+        try:
+            if utils.CHARGE_MODE == 2:
+                return utils.calc_step_relationship(
+                    self.temperature_mos,
+                    utils.MOSFET_TEMPERATURES_WHILE_DISCHARGING,
+                    utils.MAX_DISCHARGE_CURRENT_T_MOSFET,
+                    False,
+                )
+            else:
+                return utils.calc_linear_relationship(
+                    self.temperature_mos,
+                    utils.MOSFET_TEMPERATURES_WHILE_DISCHARGING,
+                    utils.MAX_DISCHARGE_CURRENT_T_MOSFET,
+                )
+        except Exception:
+            # set error code, to show in the GUI that something is wrong
+            self.manage_error_code(8)
+
+            logger.error("calc_max_discharge_current_from_mosfet_temperature(): Error while executing," + " using default current instead.")
+            logger.error(
+                f"temperature_mos: {self.temperature_mos}"
+                + f" • MOSFET_TEMPERATURES_WHILE_DISCHARGING: {utils.MOSFET_TEMPERATURES_WHILE_DISCHARGING}"
+                + f" • MAX_DISCHARGE_CURRENT_T_MOSFET: {utils.MAX_DISCHARGE_CURRENT_T_MOSFET}"
             )
 
             exception_type, exception_object, exception_traceback = sys.exc_info()
@@ -1984,11 +2098,12 @@ class Battery(ABC):
                 f"> MAX BATTERY CHARGE CURRENT: {self.max_battery_charge_current} A | "
                 + f"MAX BATTERY DISCHARGE CURRENT: {self.max_battery_discharge_current} A (read from BMS)"
             )
-        logger.info(f"> CVCM:     {utils.CVCM_ENABLE}")
-        logger.info(f"> CCCM CV:  {str(utils.CCCM_CV_ENABLE).ljust(5)} | DCCM CV:  {utils.DCCM_CV_ENABLE}")
-        logger.info(f"> CCCM T:   {str(utils.CCCM_T_ENABLE).ljust(5)} | DCCM T:   {utils.DCCM_T_ENABLE}")
-        logger.info(f"> CCCM SOC: {str(utils.CCCM_SOC_ENABLE).ljust(5)} | DCCM SOC: {utils.DCCM_SOC_ENABLE}")
-        logger.info(f"> CHARGE FET: {self.charge_fet} | DISCHARGE FET: {self.discharge_fet} | BALANCE FET: {self.balance_fet}")
+        logger.info(f"> CVCM:       {utils.CVCM_ENABLE}")
+        logger.info(f"> CCCM CV:    {str(utils.CCCM_CV_ENABLE).ljust(5)} | DCCM CV:       {utils.DCCM_CV_ENABLE}")
+        logger.info(f"> CCCM T:     {str(utils.CCCM_T_ENABLE).ljust(5)} | DCCM T:        {utils.DCCM_T_ENABLE}")
+        logger.info(f"> CCCM T MOS: {str(utils.CCCM_T_MOSFET_ENABLE).ljust(5)} | DCCM T MOS:    {utils.DCCM_T_MOSFET_ENABLE}")
+        logger.info(f"> CCCM SOC:   {str(utils.CCCM_SOC_ENABLE).ljust(5)} | DCCM SOC:      {utils.DCCM_SOC_ENABLE}")
+        logger.info(f"> CHARGE FET: {str(self.charge_fet).ljust(5)} | DISCHARGE FET: {self.discharge_fet} | BALANCE FET: {self.balance_fet}")
         logger.info(f"Serial Number/Unique Identifier: {self.unique_identifier()}")
 
         return
