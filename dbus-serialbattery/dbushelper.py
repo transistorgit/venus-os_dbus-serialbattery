@@ -70,7 +70,7 @@ class DbusHelper:
         Last time the history values were calculated.
         """
         self.telemetry_upload_error_count: int = 0
-        self.telemetry_upload_interval: int = 60 * 60 * 24 * 7  # 1 week
+        self.telemetry_upload_interval: int = 60 * 60 * 3  # 3 hours
         self.telemetry_upload_last: int = 0
         self.telemetry_upload_running: bool = False
 

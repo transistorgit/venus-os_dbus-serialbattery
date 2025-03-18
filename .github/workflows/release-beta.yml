@@ -24,9 +24,9 @@ jobs:
           VERSION=$(echo $GITHUB_REF_NAME | sed 's/^v//')
           echo $VERSION
           echo
-          head -n 39 dbus-serialbattery/utils.py | tail -n 3
+          grep -n "DRIVER_VERSION: str = " dbus-serialbattery/utils.py
           sed -i --regexp-extended --expression="s/[0-9]+\.[0-9]+\.[0-9a-z\_\-]+/$VERSION/" "dbus-serialbattery/utils.py"
-          head -n 39 dbus-serialbattery/utils.py | tail -n 3
+          grep -n "DRIVER_VERSION: str = " dbus-serialbattery/utils.py
 
       - name: Copy changelog
         run: |
