@@ -666,6 +666,9 @@ class Battery(ABC):
         control_voltage = 0
         current_time = int(time())
 
+        if utils.CVL_CONTROLLER_MODE == 1:
+            penalty_sum = 0
+
         try:
             voltage_sum = self.get_cell_voltage_sum()
             voltage_cell_diff = self.get_max_cell_voltage() - self.get_min_cell_voltage()
@@ -735,7 +738,6 @@ class Battery(ABC):
 
                 # use P-Controller
                 if utils.CVL_CONTROLLER_MODE == 1:
-                    penalty_sum = 0
                     found_high_cell_voltage = False
 
                     # check for cell overvoltage
