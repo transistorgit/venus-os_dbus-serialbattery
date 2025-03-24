@@ -64,6 +64,7 @@
 * Added: Pace BMS by @KoljaWindeler
 * Added: Possibility to add external sensor for SoC by @mr-manuel
 * Added: Signal handler for clean service restart/shutdown by @mr-manuel
+* Added: UBMS CAN - support for Valence U-BMS by @gimx
 * Changed: A lot of under the hood optimizations by @mr-manuel
 * Changed: Apply `SOC_RESET_VOLTAGE` after `SOC_RESET_AFTER_DAYS` regardless of whether the battery is in absorption, bulk, or float mode https://github.com/mr-manuel/venus-os_dbus-serialbattery/issues/123 by @mr-manuel
 * Changed: Consumed capacity must be negative values by @mr-manuel
