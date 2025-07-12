@@ -6,6 +6,7 @@
 from battery import Battery, Cell
 from utils import (
     bytearray_to_string,
+    get_connection_error_message,
     open_serial_port,
     logger,
     AUTO_RESET_SOC,
@@ -82,11 +83,15 @@ class Daly(Battery):
         result = False
         try:
             with open_serial_port(self.port, self.baud_rate) as ser:
+                logger.debug("status")
                 result = self.read_status_data(ser)
                 # get first data to show in startup log, only if result is true
+                logger.debug("soc")
                 result = result and self.read_soc_data(ser)
+                logger.debug("code")
                 result = result and self.read_battery_code(ser)
                 # returns always true
+                logger.debug("settings")
                 result = result and self.get_settings(ser)
 
         except Exception:
@@ -102,7 +107,7 @@ class Daly(Battery):
 
         # give the user a feedback that no BMS was found
         if not result:
-            logger.error(">>> ERROR: No reply - returning")
+            get_connection_error_message(self.online)
 
         return result
 
@@ -576,7 +581,7 @@ class Daly(Battery):
 
         # wait shortly, else the Daly is not ready and throws a lot of no reply errors
         # if you see a lot of errors, try to increase in steps of 0.005
-        sleep(0.020)
+        sleep(0.02)
 
         cmd = bytearray(13)
         now = datetime.now()
@@ -642,14 +647,14 @@ class Daly(Battery):
     def write_charge_discharge_mos(self, ser):
         # wait shortly, else the Daly is not ready and throws a lot of no reply errors
         # if you see a lot of errors, try to increase in steps of 0.005
-        sleep(0.020)
+        sleep(0.02)
 
         if self.trigger_force_disable_charge is None and self.trigger_force_disable_discharge is None:
             return False
 
         # wait shortly, else the Daly is not ready and throws a lot of no reply errors
         # if you see a lot of errors, try to increase in steps of 0.005
-        sleep(0.020)
+        sleep(0.02)
 
         cmd = bytearray(self.command_base)
 
@@ -694,7 +699,7 @@ class Daly(Battery):
     def request_data(self, ser, command, sentences_to_receive=1):
         # wait shortly, else the Daly is not ready and throws a lot of no reply errors
         # if you see a lot of errors, try to increase in steps of 0.005
-        sleep(0.020)
+        sleep(0.02)
 
         self.runtime = 0
         time_start = time()
@@ -719,9 +724,15 @@ class Daly(Battery):
         """
         time_start = time()
 
-        reply = ser.read_until(b"\xa5")
+        reply = None
+        try:
+            reply = ser.read_until(b"\xa5")
+        except Exception:
+            logger.debug("read_until failed ##############")
+            return False
+
         if not reply or b"\xa5" not in reply:
-            logger.debug(f"read_sentence {bytearray_to_string(expected_reply)}: no sentence start received")
+            logger.debug(f"read_sentence {bytearray_to_string(expected_reply)} vs {bytearray_to_string(reply)}: no sentence start received")
             return False
 
         idx = reply.index(b"\xa5")

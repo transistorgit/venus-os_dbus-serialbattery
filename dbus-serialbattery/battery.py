@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from typing import Union, Tuple, List, Dict, Callable
 
-from utils import logger
+from utils import logger, safe_number_format
 import utils
 import logging
 import math
@@ -290,7 +290,7 @@ class Battery(ABC):
         self.type: str = "Generic"
         self.poll_interval: int = 1000
         self.dbus_external_objects: dict = None
-        self.online: bool = True
+        self.online: bool = None
         self.connection_info: str = "Initializing..."
         self.hardware_version: str = None
         self.cell_count: int = None
@@ -582,6 +582,10 @@ class Battery(ABC):
 
         SOC_RESET_TIME = 60
 
+        # prevent errors, it the values were reset due to connection loss
+        if self.current_calc is None:
+            return None
+
         if self.soc_calc_capacity_remain is not None:
             # calculate remaining capacity based on current
             self.soc_calc_capacity_remain = self.soc_calc_capacity_remain + self.current_calc * (current_time - self.soc_calc_capacity_remain_last_time) / 3600
@@ -632,7 +636,7 @@ class Battery(ABC):
         """
         Call this method only, if `SOC_RESET_AFTER_DAYS` is not False.
 
-        It sets the `self.max_battery_voltage` to the `SOC_RESET_VOLTAGE` once needed.
+        It sets the `self.max_battery_voltage` to the `SOC_RESET_CELL_VOLTAGE` once needed.
 
         :return: None
         """
@@ -649,7 +653,7 @@ class Battery(ABC):
         ):
             self.soc_reset_requested = True
 
-        self.soc_reset_battery_voltage = round(utils.SOC_RESET_VOLTAGE * self.cell_count, 2)
+        self.soc_reset_battery_voltage = round(utils.SOC_RESET_CELL_VOLTAGE * self.cell_count, 2)
 
         if self.soc_reset_requested:
             self.max_battery_voltage = self.soc_reset_battery_voltage
@@ -734,7 +738,7 @@ class Battery(ABC):
             if self.allow_max_voltage:
 
                 # Get maximum allowed cell voltage
-                cell_voltage_max_allowed = utils.SOC_RESET_VOLTAGE if self.soc_reset_requested else utils.MAX_CELL_VOLTAGE
+                cell_voltage_max_allowed = utils.SOC_RESET_CELL_VOLTAGE if self.soc_reset_requested else utils.MAX_CELL_VOLTAGE
 
                 # use P-Controller
                 if utils.CVL_CONTROLLER_MODE == 1:
@@ -864,29 +868,38 @@ class Battery(ABC):
 
                 self.charge_mode_debug = (
                     f"driver started: {formatted_time} • running since: {self.get_seconds_to_string(int(time()) - self.driver_start_time)}\n"
-                    + f"max_battery_voltage: {(self.max_battery_voltage):.2f} V • "
-                    + f"voltage: {self.voltage:.2f} V\n"
-                    + f"control_voltage: {self.control_voltage:.2f} V + "
-                    + f"{utils.VOLTAGE_DROP:.2f} V (VOLTAGE_DROP) = {(self.control_voltage + utils.VOLTAGE_DROP):.2f} V\n"
-                    + f"voltage_sum: {voltage_sum:.2f} V • "
-                    + f"voltage_cell_diff: {voltage_cell_diff:.3f} V\n"
+                    + f"max_battery_voltage: {safe_number_format(self.max_battery_voltage, '{:.2f}')} V • "
+                    + f"voltage: {safe_number_format(self.voltage, '{:.2f}')} V\n"
+                    + f"control_voltage: {safe_number_format(self.control_voltage, '{:.2f}')} V + "
+                    + f"{safe_number_format(utils.VOLTAGE_DROP, '{:.2f}')} V (VOLTAGE_DROP) = "
+                    + f"{safe_number_format((self.control_voltage + utils.VOLTAGE_DROP), '{:.2f}')} V\n"
+                    + f"voltage_sum: {safe_number_format(voltage_sum, '{:.2f}')} V • "
+                    + f"voltage_cell_diff: {safe_number_format(voltage_cell_diff, '{:.3f}')} V\n"
                     + f"max_cell_voltage: {self.get_max_cell_voltage()} V"
-                    + (f" • penalty_sum: {penalty_sum:.3f} V" if utils.CVL_CONTROLLER_MODE == 1 else "")
+                    + (f" • penalty_sum: {safe_number_format(penalty_sum, '{:.3f}')} V" if utils.CVL_CONTROLLER_MODE == 1 else "")
                     + "\n"
                     + f"soc: {self.soc}% • soc_calc: {self.soc_calc}%\n"
-                    + f"current: {self.current:.2f}A"
-                    + (f" • current_calc: {self.current_calc:.2f} A\n" if self.current_calc is not None else "\n")
+                    + f"current: {safe_number_format(self.current, '{:.2f}')}A"
+                    + (f" • current_calc: {safe_number_format(self.current_calc, '{:.2f}')} A\n" if self.current_calc is not None else "\n")
                     + f"current_time: {current_time}\n"
                     + f"linear_cvl_last_set: {self.linear_cvl_last_set}\n"
                     + f"charge_fet: {self.charge_fet} • control_allow_charge: {self.control_allow_charge}\n"
                     + f"discharge_fet: {self.discharge_fet} • "
                     + f"control_allow_discharge: {self.control_allow_discharge}\n"
                     + f"block_because_disconnect: {self.block_because_disconnect}\n"
-                    + "soc_reset_last_reached: "
-                    + ("Never" if self.soc_reset_last_reached == 0 else f"{soc_reset_days_ago}")
-                    + f" d ago, next in {soc_reset_in_days} d\n"
                     + (
-                        f"soc_calc_capacity_remain: {self.soc_calc_capacity_remain:.3f}/{self.capacity} Ah\n"
+                        (
+                            "soc_reset_last_reached: "
+                            + ("Never" if self.soc_reset_last_reached == 0 else f"{soc_reset_days_ago} d ago")
+                            + ", next "
+                            + (" already planned" if soc_reset_in_days < 0 else "in {soc_reset_in_days} d")
+                            + "\n"
+                        )
+                        if utils.SOC_RESET_AFTER_DAYS is not False
+                        else ""
+                    )
+                    + (
+                        f"soc_calc_capacity_remain: {safe_number_format(self.soc_calc_capacity_remain, '{:.3f}')}/{self.capacity} Ah\n"
                         if self.soc_calc_capacity_remain is not None
                         else ""
                     )
@@ -896,11 +909,11 @@ class Battery(ABC):
 
                 self.charge_mode_debug_float = (
                     "-- switch to float requirements (Linear Mode) --\n"
-                    + f"max_battery_voltage: {self.max_battery_voltage:.2f} <= "
-                    + f"{voltage_sum:.2f} :voltage_sum\n"
+                    + f"max_battery_voltage: {safe_number_format(self.max_battery_voltage, '{:.2f}')} <= "
+                    + f"{safe_number_format(voltage_sum, '{:.2f}')} :voltage_sum\n"
                     + "AND\n"
-                    + f"voltage_cell_diff: {voltage_cell_diff:.3f} <= "
-                    + f"{utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF:.3f} "
+                    + f"voltage_cell_diff: {safe_number_format(voltage_cell_diff, '{:.3f}')} <= "
+                    + f"{safe_number_format(utils.SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF, '{:.3f}')} "
                     + ":SWITCH_TO_FLOAT_CELL_VOLTAGE_DIFF\n"
                     + "AND\n"
                     + f"allow_max_voltage: {self.allow_max_voltage} == True\n"
@@ -913,8 +926,8 @@ class Battery(ABC):
                     + "a) SWITCH_TO_BULK_SOC_THRESHOLD: "
                     + f"{utils.SWITCH_TO_BULK_SOC_THRESHOLD} > {self.soc_calc} :soc_calc\n"
                     + "OR\n"
-                    + f"b) voltage_cell_diff: {voltage_cell_diff:.3f} >= "
-                    + f"{utils.SWITCH_TO_BULK_CELL_VOLTAGE_DIFF:.3f} "
+                    + f"b) voltage_cell_diff: {safe_number_format(voltage_cell_diff, '{:.3f}')} >= "
+                    + f"{safe_number_format(utils.SWITCH_TO_BULK_CELL_VOLTAGE_DIFF, '{:.3f}')} "
                     + ":SWITCH_TO_BULK_CELL_VOLTAGE_DIFF\n"
                     + "AND\n"
                     + f"allow_max_voltage: {self.allow_max_voltage} == False"

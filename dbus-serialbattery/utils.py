@@ -14,7 +14,7 @@ import serial
 
 
 # CONSTANTS
-DRIVER_VERSION: str = "2.0.20250324dev"
+DRIVER_VERSION: str = "2.0.20250518dev"
 """
 current version of the driver
 """
@@ -41,7 +41,22 @@ config = configparser.ConfigParser()
 path = Path(__file__).parents[0]
 default_config_file_path = str(path.joinpath(PATH_CONFIG_DEFAULT).absolute())
 custom_config_file_path = str(path.joinpath(PATH_CONFIG_USER).absolute())
-config.read([default_config_file_path, custom_config_file_path])
+try:
+    config.read([default_config_file_path, custom_config_file_path])
+
+    # Ensure the [DEFAULT] section exists and is uppercase
+    if "DEFAULT" not in config:
+        logger.error(f'The custom config file "{custom_config_file_path}" is missing the [DEFAULT] section.')
+        logger.error("Make sure the first line of the file is exactly (case-sensitive): [DEFAULT]")
+        sleep(60)
+        sys.exit(1)
+
+except configparser.MissingSectionHeaderError as error_message:
+    logger.error(f'Error reading "{custom_config_file_path}"')
+    logger.error("Make sure the first line is exactly: [DEFAULT]")
+    logger.error(f"{error_message}\n")
+    sleep(60)
+    sys.exit(1)
 
 # Map config logging levels to logging module levels
 LOGGING_LEVELS = {
@@ -188,17 +203,17 @@ elif FLOAT_CELL_VOLTAGE < MIN_CELL_VOLTAGE:
 
 
 # --------- SoC Reset Voltage (must match BMS settings) ---------
-SOC_RESET_VOLTAGE: float = get_float_from_config("DEFAULT", "SOC_RESET_VOLTAGE")
+SOC_RESET_CELL_VOLTAGE: float = get_float_from_config("DEFAULT", "SOC_RESET_CELL_VOLTAGE")
 SOC_RESET_AFTER_DAYS: Union[int, bool] = get_int_from_config("DEFAULT", "SOC_RESET_AFTER_DAYS") if config["DEFAULT"]["SOC_RESET_AFTER_DAYS"] != "" else False
 
 # make some checks for most common misconfigurations
-if SOC_RESET_AFTER_DAYS and SOC_RESET_VOLTAGE < MAX_CELL_VOLTAGE:
+if SOC_RESET_AFTER_DAYS and SOC_RESET_CELL_VOLTAGE < MAX_CELL_VOLTAGE:
     check_config_issue(
         True,
-        f"SOC_RESET_VOLTAGE ({SOC_RESET_VOLTAGE} V) is less than MAX_CELL_VOLTAGE ({MAX_CELL_VOLTAGE} V). "
-        "To ensure that the driver still works correctly, SOC_RESET_VOLTAGE was set to MAX_CELL_VOLTAGE. Please check the configuration.",
+        f"SOC_RESET_CELL_VOLTAGE ({SOC_RESET_CELL_VOLTAGE} V) is less than MAX_CELL_VOLTAGE ({MAX_CELL_VOLTAGE} V). "
+        "To ensure that the driver still works correctly, SOC_RESET_CELL_VOLTAGE was set to MAX_CELL_VOLTAGE. Please check the configuration.",
     )
-    SOC_RESET_VOLTAGE = MAX_CELL_VOLTAGE
+    SOC_RESET_CELL_VOLTAGE = MAX_CELL_VOLTAGE
 
 
 # --------- SoC Calculation ---------
@@ -324,9 +339,9 @@ check_config_issue(
 )
 
 check_config_issue(
-    SOC_RESET_AFTER_DAYS and CELL_VOLTAGES_WHILE_CHARGING[0] < SOC_RESET_VOLTAGE and MAX_CHARGE_CURRENT_CV[0] == 0,
-    f"Maximum value of CELL_VOLTAGES_WHILE_CHARGING ({CELL_VOLTAGES_WHILE_CHARGING[0]} V) is lower than SOC_RESET_VOLTAGE ({SOC_RESET_VOLTAGE} V). "
-    "SOC_RESET_VOLTAGE will never be reached this way and battery will not change to float. Please check the configuration.",
+    SOC_RESET_AFTER_DAYS and CELL_VOLTAGES_WHILE_CHARGING[0] < SOC_RESET_CELL_VOLTAGE and MAX_CHARGE_CURRENT_CV[0] == 0,
+    f"Maximum value of CELL_VOLTAGES_WHILE_CHARGING ({CELL_VOLTAGES_WHILE_CHARGING[0]} V) is lower than SOC_RESET_CELL_VOLTAGE ({SOC_RESET_CELL_VOLTAGE} V). "
+    "SOC_RESET_CELL_VOLTAGE will never be reached this way and battery will not change to float. Please check the configuration.",
 )
 
 check_config_issue(
@@ -640,6 +655,25 @@ def bytearray_to_string(data: bytearray) -> str:
     return "".join(f"\\x{byte:02x}" for byte in data)
 
 
+def get_connection_error_message(battery_online: bool, suffix: str = None) -> None:
+    """
+    This method is used to check if the connection to the BMS is successful.
+    It returns True if the connection is successful, otherwise False.
+    It also handles the error logging if the connection is lost.
+
+    :battery_online: Boolean indicating if the battery is online
+    :suffix: Optional suffix to add to the error message
+    :return: True if the connection is successful, otherwise False
+    """
+    if battery_online is None:
+        logger.info("  |- No battery recognized")
+        return
+
+    if battery_online:
+        logger.error(">>> No response from battery. Connection lost or battery not recognized. Check cabeling!" + (" " + suffix if suffix else ""))
+        return
+
+
 def open_serial_port(port: str, baud: int) -> Union[serial.Serial, None]:
     """
     Open a serial port.
@@ -665,6 +699,7 @@ def read_serialport_data(
     length_check: int,
     length_fixed: Union[int, None] = None,
     length_size: str = "B",
+    battery_online: bool = True,
 ) -> bytearray:
     """
     Read data from a serial port
@@ -675,6 +710,7 @@ def read_serialport_data(
     :param length_check: Length of the checksum
     :param length_fixed: Fixed length of the data, if not set it will be read from the data
     :param length_size: Size of the length byte, can be "B", "H", "I" or "L"
+    :param battery_online: Boolean indicating if the battery is online
     :return: Data read from the serial port
     """
     try:
@@ -697,7 +733,7 @@ def read_serialport_data(
             toread = ser.inWaiting()
             count += 1
             if count > 50:
-                logger.error(">>> ERROR: No reply - returning")
+                get_connection_error_message(battery_online)
                 return False
 
         # logger.info('serial data toread ' + str(toread))
@@ -706,7 +742,7 @@ def read_serialport_data(
             length = length_fixed
         else:
             if len(res) < (length_pos + length_byte_size):
-                logger.error(">>> ERROR: No reply - returning [len:" + str(len(res)) + "]")
+                get_connection_error_message(battery_online, "[len:" + str(len(res)) + "]")
                 return False
             length = unpack_from(">" + length_size, res, length_pos)[0]
 
@@ -721,7 +757,7 @@ def read_serialport_data(
             sleep(0.005)
             count += 1
             if count > 150:
-                logger.error(">>> ERROR: No reply - returning [len:" + str(len(data)) + "/" + str(length + length_check) + "]")
+                get_connection_error_message(battery_online, "[len:" + str(len(data)) + "/" + str(length + length_check) + "]")
                 return False
 
         return data
@@ -750,6 +786,7 @@ def read_serial_data(
     length_check: int,
     length_fixed: Union[int, None] = None,
     length_size: str = "B",
+    battery_online: bool = True,
 ) -> bytearray:
     """
     Read data from a serial port
@@ -761,12 +798,13 @@ def read_serial_data(
     :param length_check: Length of the checksum
     :param length_fixed: Fixed length of the data, if not set it will be read from the data
     :param length_size: Size of the length byte, can be "B", "H", "I" or "L"
+    :param battery_online: Boolean indicating if the battery is online
     :return: Data read from the serial port
     """
     ser = None  # Initialize ser to None
     try:
         with serial.Serial(port, baudrate=baud, timeout=0.1) as ser:
-            return read_serialport_data(ser, command, length_pos, length_check, length_fixed, length_size)
+            return read_serialport_data(ser, command, length_pos, length_check, length_fixed, length_size, battery_online)
 
     except serial.SerialException as e:
         logger.error(e)
@@ -788,6 +826,18 @@ def read_serial_data(
         file = exception_traceback.tb_frame.f_code.co_filename
         line = exception_traceback.tb_lineno
         logger.error(f"Exception occurred: {repr(exception_object)} of type {exception_type} in {file} line #{line}")
+
+
+def safe_number_format(value: float, fmt: str = "{:.2f}", default=None) -> str:
+    """
+    Format a value safely, returning a default value if the value is None.
+
+    :param value: Value to format
+    :param fmt: Format string (default: "{:.2f}")
+    :param default: Default value to return if value is None
+    :return: Formatted value or default value
+    """
+    return fmt.format(value) if value is not None else default
 
 
 def validate_config_values() -> bool:
@@ -816,6 +866,36 @@ def publish_config_variables(dbusservice) -> None:
             continue
         if isinstance(value, float) or isinstance(value, int) or isinstance(value, str) or isinstance(value, List):
             dbusservice.add_path(f"/Info/Config/{variable}", value)
+
+
+def get_venus_os_version() -> str:
+    """
+    Get the Venus OS version.
+
+    :return: Venus OS version, e.g. v3.60
+    """
+    with open("/opt/victronenergy/version", "r") as f:
+        return f.readline().strip()
+
+
+def get_venus_os_image_type() -> str:
+    """
+    Get the Venus OS image type
+
+    :return: Venus OS image type: normal or large
+    """
+    with open("/etc/venus/image-type", "r") as f:
+        return f.readline().strip()
+
+
+def get_venus_os_device_type() -> str:
+    """
+    Get the Venus OS device type.
+
+    :return: Venus OS device type, e.g. Venus GX, Cerbo GX, etc.
+    """
+    with open("/sys/firmware/devicetree/base/model", "r") as f:
+        return f.readline().strip()
 
 
 # Save the local variables to publish them wtih publish_config_variables() to the dbus

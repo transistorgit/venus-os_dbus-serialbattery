@@ -8,7 +8,7 @@
 
 # avoid importing wildcards, remove unused imports
 from battery import Battery, Cell
-from utils import open_serial_port, logger
+from utils import open_serial_port, get_connection_error_message, logger
 from time import sleep
 from struct import unpack
 from re import findall
@@ -99,7 +99,7 @@ class Daren485(Battery):
 
         if not result:  # TROUBLESHOOTING for no reply errors
             logger.debug(f"get_settings: result: {result}." + " If you don't see this warning very often, you can ignore it.")
-            logger.error(">>> ERROR: No reply - returning")
+            get_connection_error_message(self.online)
 
         return result
 
@@ -568,7 +568,7 @@ class Daren485(Battery):
         Example command (mark the \r at the end):
         ~22014A47E00201FD23␍
         """
-        return self.create_command(self.address, b"\x4a", b"\x47", self.address.hex().upper())
+        return self.create_command(self.address, b"\x4a", b"\x47", "01")
 
     def create_command_get_mfg_params(self):
         """
@@ -606,7 +606,7 @@ class Daren485(Battery):
         Example command (mark the \r at the end):
         ~22014A42E00201FD28␍
         """
-        return self.create_command(self.address, b"\x4a", b"\x42", self.address.hex().upper())
+        return self.create_command(self.address, b"\x4a", b"\x42", "01")
 
     def create_command_get_manufacturer_info(self):
         """

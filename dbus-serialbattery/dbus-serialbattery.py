@@ -22,6 +22,9 @@ from utils import (
     EXTERNAL_SENSOR_DBUS_DEVICE,
     EXTERNAL_SENSOR_DBUS_PATH_CURRENT,
     EXTERNAL_SENSOR_DBUS_PATH_SOC,
+    get_venus_os_version,
+    get_venus_os_image_type,
+    get_venus_os_device_type,
     logger,
     POLL_INTERVAL,
     validate_config_values,
@@ -39,6 +42,7 @@ from bms.heltecmodbus import HeltecModbus
 from bms.hlpdatabms4s import HLPdataBMS4S
 from bms.jkbms import Jkbms
 from bms.jkbms_pb import Jkbms_pb
+from bms.ks48100 import KS48100
 from bms.lltjbd import LltJbd
 from bms.pace import Pace
 from bms.renogy import Renogy
@@ -59,6 +63,7 @@ if "Sinowealth" in BMS_TYPE:
 supported_bms_types = [
     {"bms": Daly, "baud": 9600, "address": b"\x40"},
     {"bms": Daly, "baud": 9600, "address": b"\x80"},
+    {"bms": Daren485, "baud": 9600, "address": b"\x01"},
     {"bms": Daren485, "baud": 19200, "address": b"\x01"},
     {"bms": Ecs, "baud": 19200},
     {"bms": EG4_Lifepower, "baud": 9600, "address": b"\x01"},
@@ -68,6 +73,7 @@ supported_bms_types = [
     {"bms": HLPdataBMS4S, "baud": 9600},
     {"bms": Jkbms, "baud": 115200},
     {"bms": Jkbms_pb, "baud": 115200, "address": b"\x01"},
+    {"bms": KS48100, "baud": 9600, "address": b"\x01"},
     {"bms": LltJbd, "baud": 9600, "address": b"\x00"},
     {"bms": Pace, "baud": 9600, "address": b"\x00"},
     {"bms": Renogy, "baud": 9600, "address": b"\x30"},
@@ -145,7 +151,7 @@ def main():
         :param loop: The main event loop
         :return: Always returns True
         """
-        global count_for_loops, delayed_loop_count
+        global delayed_loop_count
 
         # count execution time in milliseconds
         start = datetime.now()
@@ -192,6 +198,9 @@ def main():
         retry = 1
         retries = 3
         while retry <= retries:
+            if retry > 1:
+                logger.info("")
+
             logger.info("-- Testing BMS: " + str(retry) + " of " + str(retries) + " rounds")
             # Create a new battery object that can read the battery and run connection test
             for test in expected_bms_types:
@@ -206,7 +215,10 @@ def main():
                         _bms_address = None
 
                     logger.info(
-                        "Testing " + test["bms"].__name__ + (' at address "' + bytearray_to_string(_bms_address) + '"' if _bms_address is not None else "")
+                        "  Testing "
+                        + test["bms"].__name__
+                        + (' at address "' + bytearray_to_string(_bms_address) + '"' if _bms_address is not None else "")
+                        + (" with " + str(test["baud"]) + " baud" if "baud" in test else "")
                     )
                     batteryClass = test["bms"]
                     baud = test["baud"] if "baud" in test else None
@@ -253,7 +265,7 @@ def main():
             logger.info("No Port needed")
             return "/dev/ttyUSB9"
         else:
-            logger.error("ERROR >>> No port specified in the command line arguments")
+            logger.error(">>> No port specified in the command line arguments")
             sleep(60)
             exit_driver(None, None, 1)
 
@@ -281,22 +293,14 @@ def main():
             for bms_type in bms_types:
                 if bms_type not in [bms["bms"].__name__ for bms in supported_bms_types]:
                     logger.error(
-                        f'ERROR >>> BMS type "{bms_type}" is not supported. Supported BMS types are: '
+                        f'>>> BMS type "{bms_type}" is not supported. Supported BMS types are: '
                         + f"{', '.join([bms['bms'].__name__ for bms in supported_bms_types])}"
                         + "; Disabled by default: ANT, MNB, Sinowealth"
                     )
                     exit_driver(None, None, 1)
 
-    # read the version of Venus OS
-    with open("/opt/victronenergy/version", "r") as f:
-        venus_version = f.readline().strip()
-
-    # read the GX device type
-    with open("/sys/firmware/devicetree/base/model", "r") as f:
-        gx_device_type = f.readline().strip()
-
     # show Venus OS version and device type
-    logger.info("Venus OS " + venus_version + " running on " + gx_device_type)
+    logger.info("Venus OS " + get_venus_os_version() + " (" + get_venus_os_image_type() + ") running on " + get_venus_os_device_type())
 
     # show the version of the driver
     logger.info("dbus-serialbattery v" + str(DRIVER_VERSION))
@@ -312,7 +316,7 @@ def main():
         """
 
         if len(sys.argv) <= 2:
-            logger.error("ERROR >>> Bluetooth address is missing in the command line arguments")
+            logger.error(">>> Bluetooth address is missing in the command line arguments")
             sleep(60)
             exit_driver(None, None, 1)
         else:
@@ -335,7 +339,7 @@ def main():
                 from bms.lltjbd_ble import LltJbd_Ble  # noqa: F401
 
             else:
-                logger.error("ERROR >>> Unknown Bluetooth BMS type: " + port)
+                logger.error(">>> Unknown Bluetooth BMS type: " + port)
                 logger.error("Supported Bluetooth BMS types (CASE SENSITIVE!): Jkbms_Ble, Kilovault_Ble, LiTime_Ble, LltJbd_Ble")
                 sleep(60)
                 exit_driver(None, None, 1)
@@ -361,12 +365,14 @@ def main():
         """
         from bms.daly_can import Daly_Can
         from bms.jkbms_can import Jkbms_Can
+        from bms.rv_c_can import RV_C_Can
         from bms.ubms_can import Ubms_Can
 
         # only try CAN BMS on CAN port
         supported_bms_types = [
             {"bms": Daly_Can},
             {"bms": Jkbms_Can},
+            {"bms": RV_C_Can},
             {"bms": Ubms_Can},
         ]
 
@@ -452,7 +458,7 @@ def main():
 
     if not battery_found:
         logger.error(
-            f"ERROR >>> No battery connection at {port}"
+            f">>> No battery connection at {port}"
             + (" and this bus addresses: " + ", ".join(BATTERY_ADDRESSES) if BATTERY_ADDRESSES else "")
             + (f" {ble_address}" if port.endswith("_Ble") else "")
         )
@@ -471,7 +477,7 @@ def main():
         helper[key_address] = DbusHelper(battery[key_address], key_address)
         if not helper[key_address].setup_vedbus():
             logger.error(
-                f"ERROR >>> Problem with battery set up at {port}"
+                f">>> Problem with battery set up at {port}"
                 + (" and this bus address: " + ", ".join(BATTERY_ADDRESSES) if BATTERY_ADDRESSES else "")
                 + (f" {ble_address}" if port.endswith("_Ble") else "")
             )
